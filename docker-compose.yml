@@ -1,0 +1,25 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        INSTALL_YOLO: "${INSTALL_YOLO:-0}"       # set 1 in .env to build with the YOLO detector
+    image: dronevision-ai
+    container_name: dronevision
+    ports:
+      - "${HOST_PORT:-8080}:8000"
+    environment:
+      SEED_PASSWORD: "${SEED_PASSWORD:?Set SEED_PASSWORD in the .env file}"
+      JWT_SECRET: "${JWT_SECRET:-}"
+      DETECTOR: "${DETECTOR:-blob}"              # blob = demo clip only | yolo = real footage
+      YOLO_WEIGHTS: "${YOLO_WEIGHTS:-yolov8n.pt}"
+      YOLO_IMGSZ: "${YOLO_IMGSZ:-960}"
+      PROCESS_FPS: "${PROCESS_FPS:-5}"
+      MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-200}"
+      BLUR_PERSONS: "${BLUR_PERSONS:-0}"         # 1 = blur people in stored video/frames
+      VLM_PROVIDER: "${VLM_PROVIDER:-stub}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+    volumes:
+      - ./storage:/app/storage
+    mem_limit: 2g
+    restart: unless-stopped

@@ -1,0 +1,6 @@
+# Optional real-footage detector. Install CPU torch first:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# then: pip install -r requirements-yolo.txt
+# ultralytics pulls the non-headless opencv-python; afterwards run:
+#   pip uninstall -y opencv-python && pip install --force-reinstall opencv-python-headless==5.0.0.93
+ultralytics>=8.2

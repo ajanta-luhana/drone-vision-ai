@@ -1,0 +1,12 @@
+{
+  "mission_id": "MISSION-001",
+  "video_id": "VIDEO-001",
+  "source": "synthetic_demo",
+  "latitude": 24.8607,
+  "longitude": 67.0011,
+  "altitude": 60.0,
+  "heading": 0.0,
+  "hfov_deg": 84.0,
+  "seed": 42,
+  "path_mode": "hover"
+}

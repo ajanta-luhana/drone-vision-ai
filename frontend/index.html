@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DroneVision AI — Command Center</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--bg:#070b11;--bg2:#0b111a;--panel:rgba(20,28,40,.88);--panel2:#16202e;--line:rgba(120,150,190,.16);--tx:#e8eef7;--mut:#8696ab;--acc:#4cc2ff;--acc2:#7c6cff;
+--low:#3ddc97;--med:#f5c242;--high:#ff8a3d;--crit:#ff4d5e;--r:14px;--sh:0 10px 30px rgba(0,0,0,.35);--glow:0 0 0 1px rgba(76,194,255,.25),0 0 24px rgba(76,194,255,.12)}
+[data-theme=light]{--bg:#eef2f8;--bg2:#e6ecf5;--panel:rgba(255,255,255,.92);--panel2:#f2f5fa;--line:rgba(30,50,90,.14);--tx:#142033;--mut:#5b6b82;--sh:0 8px 24px rgba(30,50,90,.12)}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font:14px/1.5 Inter,system-ui,"Segoe UI",Roboto,sans-serif;color:var(--tx);background:radial-gradient(1100px 600px at 10% -10%,rgba(124,108,255,.14),transparent 60%),radial-gradient(900px 500px at 100% 0,rgba(76,194,255,.12),transparent 55%),var(--bg);background-attachment:fixed}
+.hide{display:none!important}.mut{color:var(--mut)}.err{color:var(--crit)}.mono{font-family:ui-monospace,Consolas,monospace}
+button{font:inherit;cursor:pointer}input,select,textarea{font:inherit;color:var(--tx);background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;width:100%;outline:none;transition:.15s}
+input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(76,194,255,.15)}
+label{display:block;font-size:12px;color:var(--mut);margin:10px 0 4px}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.btn{display:inline-flex;align-items:center;gap:7px;border:0;border-radius:10px;padding:9px 15px;font-weight:600;color:#04121f;background:linear-gradient(135deg,var(--acc),#66e0ff);box-shadow:0 4px 14px rgba(76,194,255,.25);transition:.15s}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.08)}.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn.sec{background:var(--panel2);color:var(--tx);border:1px solid var(--line);box-shadow:none}.btn.ok{background:linear-gradient(135deg,#2fd68a,#64f0b0);box-shadow:0 4px 14px rgba(61,220,151,.25)}
+.btn.bad{background:linear-gradient(135deg,#ff4d5e,#ff7a86);color:#fff;box-shadow:0 4px 14px rgba(255,77,94,.25)}.btn.live{background:linear-gradient(135deg,var(--acc2),#a695ff);color:#fff;box-shadow:0 4px 14px rgba(124,108,255,.3)}
+.btn.sm{padding:6px 11px;font-size:12.5px}.iconbtn{background:var(--panel2);border:1px solid var(--line);color:var(--tx);border-radius:10px;width:38px;height:38px;display:grid;place-items:center;position:relative;flex:none}
+.iconbtn:hover{border-color:var(--acc)}
+#app{display:grid;grid-template-columns:240px 1fr;min-height:100%}
+#side{position:sticky;top:0;height:100vh;padding:18px 14px;display:flex;flex-direction:column;gap:6px;background:linear-gradient(180deg,rgba(14,20,30,.9),rgba(10,15,22,.9));border-right:1px solid var(--line);backdrop-filter:blur(14px)}
+[data-theme=light] #side{background:rgba(255,255,255,.7)}
+.brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;font-weight:800;font-size:17px;letter-spacing:.2px}.brand b{color:var(--acc)}
+.logo{width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,var(--acc2),var(--acc));display:grid;place-items:center;box-shadow:var(--glow)}
+#nav{display:flex;flex-direction:column;gap:3px}
+#nav button{display:flex;align-items:center;gap:12px;background:none;border:0;color:var(--mut);padding:10px 12px;border-radius:11px;text-align:left;transition:.15s;position:relative}
+#nav button:hover{background:rgba(120,150,190,.1);color:var(--tx)}
+#nav button.on{background:linear-gradient(90deg,rgba(76,194,255,.18),rgba(76,194,255,.03));color:var(--tx)}
+#nav button.on::before{content:"";position:absolute;left:-14px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--acc);box-shadow:0 0 12px var(--acc)}
+#nav .cnt{margin-left:auto;background:var(--crit);color:#fff;border-radius:99px;font-size:11px;padding:0 7px;font-weight:700}
+.sidefoot{margin-top:auto;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.me{display:flex;align-items:center;gap:10px}.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--acc2),var(--acc));display:grid;place-items:center;font-weight:800;color:#fff}
+#main{min-width:0;display:flex;flex-direction:column}
+#top{display:flex;align-items:center;gap:12px;padding:14px 26px;position:sticky;top:0;z-index:30;background:linear-gradient(180deg,var(--bg) 40%,transparent);backdrop-filter:blur(8px)}
+#ptitle{font-size:20px;font-weight:800;margin:0;flex:1;white-space:nowrap}
+#top select{width:auto;max-width:280px}
+main#view{padding:6px 26px 40px;animation:fade .25s}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.grid{display:grid;gap:16px;margin-bottom:16px}.k4{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}.g21{grid-template-columns:minmax(0,2fr) minmax(300px,1fr)}.g3{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}.g2{grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--sh);min-width:0}
+.ch{margin:0 0 12px;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.9px;font-weight:700;display:flex;align-items:center;gap:8px}
+.ch .sp{flex:1}
+.kpi{display:flex;gap:14px;align-items:center;position:relative;overflow:hidden}
+.kpi .ico{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;background:rgba(76,194,255,.12);color:var(--acc)}
+.kpi.red .ico{background:rgba(255,77,94,.14);color:var(--crit)}.kpi.vio .ico{background:rgba(124,108,255,.16);color:#a99cff}.kpi.grn .ico{background:rgba(61,220,151,.14);color:var(--low)}
+.kpi .v{font-size:30px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums}.kpi .l{font-size:12px;color:var(--mut)}
+.kpi::after{content:"";position:absolute;right:-30px;top:-30px;width:110px;height:110px;border-radius:50%;background:radial-gradient(circle,rgba(76,194,255,.14),transparent 70%)}
+.kpi.red::after{background:radial-gradient(circle,rgba(255,77,94,.16),transparent 70%)}
+.badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:800;letter-spacing:.4px;color:#06101a}
+.badge.LOW{background:var(--low)}.badge.MEDIUM{background:var(--med)}.badge.HIGH{background:var(--high)}.badge.CRITICAL{background:var(--crit);color:#fff;box-shadow:0 0 14px rgba(255,77,94,.55)}
+.pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:99px;padding:4px 11px;font-size:12px;background:var(--panel2);color:var(--mut)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--mut);display:inline-block}
+#live.on{color:var(--low)}#live.on .dot{background:var(--low);box-shadow:0 0 0 0 rgba(61,220,151,.6);animation:pulse 1.8s infinite}
+#live.wait{color:var(--med)}#live.wait .dot{background:var(--med)}#live.off{color:var(--crit)}#live.off .dot{background:var(--crit)}
+@keyframes pulse{70%{box-shadow:0 0 0 9px rgba(61,220,151,0)}100%{box-shadow:0 0 0 0 rgba(61,220,151,0)}}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:5px 12px;margin:3px 5px 3px 0;font-size:12.5px;color:var(--tx);transition:.15s}
+button.chip:hover,.chip.on{border-color:var(--acc);color:var(--acc);background:rgba(76,194,255,.08)}.chip.tag{cursor:default}
+.livebox{position:relative;border-radius:12px;overflow:hidden;background:#05080d;aspect-ratio:16/9;display:grid;place-items:center;border:1px solid var(--line)}
+.livebox img{width:100%;height:100%;object-fit:contain;display:none}.livebox.has img{display:block}
+.liveidle{text-align:center;color:var(--mut);padding:20px}.livebox.has .liveidle{display:none}
+.liveidle .radar{width:86px;height:86px;margin:0 auto 10px;border-radius:50%;border:1px solid var(--line);position:relative;background:repeating-radial-gradient(circle,transparent 0 14px,rgba(76,194,255,.14) 15px 16px)}
+.liveidle .radar::after{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(76,194,255,.55),transparent 28%);animation:spin 2.4s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hud{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:6px;flex-wrap:wrap;pointer-events:none}
+.hud span{background:rgba(5,8,13,.72);border:1px solid var(--line);color:#dfe9f5;border-radius:8px;padding:2px 9px;font-size:12px;font-family:ui-monospace,Consolas,monospace}
+.hud .rec{color:#ff6b78}.livebox:not(.has) .hud{display:none}
+.lprog{height:5px;background:var(--panel2);border-radius:5px;overflow:hidden;margin-top:10px}.lprog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc2),var(--acc));transition:width .2s}
+.feed{max-height:380px;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
+.fi{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border-radius:11px;background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--acc);animation:slide .3s}
+.fi.CRITICAL{border-left-color:var(--crit)}.fi.HIGH{border-left-color:var(--high)}.fi.MEDIUM{border-left-color:var(--med)}.fi.ok{border-left-color:var(--low)}.fi.sys{border-left-color:var(--acc2)}
+.fi .t{font-size:11px;color:var(--mut);white-space:nowrap}.fi .m{flex:1;min-width:0;overflow-wrap:anywhere}
+@keyframes slide{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+.empty{color:var(--mut);text-align:center;padding:26px 10px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mut);font-size:12px;font-weight:600}
+.icard{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:12px 14px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);margin-bottom:9px;cursor:pointer;transition:.15s;border-left:4px solid var(--mut)}
+.icard:hover{transform:translateX(3px);border-color:var(--acc)}
+.icard.CRITICAL{border-left-color:var(--crit);box-shadow:inset 24px 0 40px -34px var(--crit)}.icard.HIGH{border-left-color:var(--high)}.icard.MEDIUM{border-left-color:var(--med)}.icard.LOW{border-left-color:var(--low)}
+.icard .sc{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:15px;border:3px solid var(--mut)}
+.icard.CRITICAL .sc{border-color:var(--crit);color:var(--crit)}.icard.HIGH .sc{border-color:var(--high);color:var(--high)}.icard.MEDIUM .sc{border-color:var(--med);color:var(--med)}.icard.LOW .sc{border-color:var(--low);color:var(--low)}
+.st{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}.st.confirmed{color:var(--crit)}.st.dismissed{color:var(--low)}.st.investigating{color:var(--med)}
+.mcard{padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);margin-bottom:8px;cursor:pointer;transition:.15s}.mcard.on,.mcard:hover{border-color:var(--acc)}
+.stepper{display:flex;align-items:center;gap:6px;margin:10px 0}.step{display:flex;align-items:center;gap:6px;color:var(--mut);font-size:12px}.step b{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--panel2);border:1px solid var(--line);font-size:11px}
+.step.on{color:var(--tx)}.step.on b{background:var(--acc);color:#04121f;border-color:var(--acc)}.step.run b{background:var(--acc2);color:#fff;animation:pulse2 1.2s infinite}.stepper hr{flex:1;border:0;border-top:1px dashed var(--line);margin:0}
+@keyframes pulse2{50%{box-shadow:0 0 0 6px rgba(124,108,255,.22)}}
+.bar{height:8px;background:var(--panel2);border-radius:8px;overflow:hidden}.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--acc2),var(--acc));border-radius:8px;transition:width .4s}
+.hbar{display:flex;align-items:center;gap:10px;margin:7px 0}.hbar b{width:150px;font-weight:500;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hbar .bar{flex:1}.hbar span{width:38px;text-align:right;font-variant-numeric:tabular-nums}
+.vbars{display:flex;align-items:flex-end;gap:6px;height:120px;padding-bottom:20px}.vbars div{flex:1;background:linear-gradient(180deg,var(--acc),var(--acc2));border-radius:5px 5px 0 0;min-height:3px;position:relative}.vbars span{position:absolute;bottom:-19px;left:-4px;right:-4px;text-align:center;font-size:10px;color:var(--mut)}
+.donutwrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}.donut text{fill:var(--tx);font-weight:800}.legend div{display:flex;gap:8px;align-items:center;margin:3px 0;font-size:13px}.legend i{width:10px;height:10px;border-radius:3px}
+#scrim{position:fixed;inset:0;background:rgba(2,5,9,.55);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.2s;z-index:50}#scrim.on{opacity:1;pointer-events:auto}
+#drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--bg2);border-left:1px solid var(--line);z-index:60;transform:translateX(105%);transition:.28s cubic-bezier(.2,.8,.2,1);overflow:auto;padding:20px;box-shadow:-20px 0 50px rgba(0,0,0,.4)}#drawer.on{transform:none}
+#zdraw{position:fixed;inset:0;z-index:70;display:none;place-items:center;padding:20px;background:rgba(2,5,9,.7)}#zdraw.on{display:grid}#zdraw .card{width:min(1040px,100%);max-height:94vh;overflow:auto;background:var(--bg2)}
+#zwrap{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line)}#zwrap img{display:block;width:100%}#zsvg{position:absolute;left:0;top:0;width:100%;height:100%;cursor:crosshair}
+.gauge{width:120px;height:120px;position:relative;flex:none}.gauge svg{transform:rotate(-90deg)}.gauge .n{position:absolute;inset:0;display:grid;place-items:center;text-align:center;font-weight:800;font-size:30px;line-height:1}.gauge small{display:block;font-size:11px;font-weight:600;color:var(--mut)}
+.evimg{width:100%;border-radius:12px;border:1px solid var(--line);margin:10px 0;background:#000}
+.tl{position:relative;margin:6px 0 6px 8px;padding-left:18px;border-left:2px solid var(--line)}.tl div{position:relative;margin-bottom:11px}.tl div::before{content:"";position:absolute;left:-25px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px var(--acc)}
+#toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:9px;z-index:90}
+.toast{background:var(--bg2);border:1px solid var(--line);border-left:4px solid var(--acc);padding:11px 15px;border-radius:12px;box-shadow:var(--sh);max-width:360px;animation:slide .3s}
+.leaflet-container{background:#0b111a;font:inherit}
+#map,#lmap{height:560px;border-radius:12px;border:1px solid var(--line)}#lmap{height:340px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:16px;text-align:center;transition:.15s}.drop.over{border-color:var(--acc);background:rgba(76,194,255,.06)}
+.chat{height:430px;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:6px}.msg{display:flex;gap:10px;max-width:88%}.msg.me{align-self:flex-end;flex-direction:row-reverse}
+.msg .b{padding:10px 14px;border-radius:14px;white-space:pre-wrap;background:var(--panel2);border:1px solid var(--line)}.msg.me .b{background:linear-gradient(135deg,#1b4f86,#2a6bb3);color:#fff;border:0}
+.msg .av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--acc2),var(--acc));color:#fff;font-size:12px;font-weight:800;flex:none}
+.tools{font-size:11px;color:var(--mut);margin-top:6px}.typing i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--mut);margin:0 2px;animation:blink 1s infinite}.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}@keyframes blink{50%{opacity:.2}}
+#login{min-height:100vh;display:grid;grid-template-columns:1.1fr 1fr}
+.hero{padding:60px;display:flex;flex-direction:column;justify-content:center;gap:18px;position:relative;overflow:hidden}
+.hero h1{font-size:46px;line-height:1.08;margin:0;font-weight:900}.hero h1 span{background:linear-gradient(90deg,var(--acc),var(--acc2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{color:var(--mut);max-width:520px;font-size:16px}.feat{display:flex;gap:10px;flex-wrap:wrap}
+.hero .rings{position:absolute;right:-160px;top:50%;width:560px;height:560px;margin-top:-280px;border-radius:50%;background:repeating-radial-gradient(circle,transparent 0 60px,rgba(76,194,255,.1) 61px 62px);opacity:.8}
+.hero .rings::after{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(76,194,255,.28),transparent 22%);animation:spin 5s linear infinite}
+.loginbox{display:grid;place-items:center;padding:30px}.loginbox .card{width:min(400px,100%);padding:28px}
+@media(max-width:1000px){#app{grid-template-columns:1fr}#side{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center}#nav{flex-direction:row;flex-wrap:wrap}.sidefoot{margin:0}.g21{grid-template-columns:1fr}#login{grid-template-columns:1fr}.hero{display:none}#top{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+<div id="login">
+  <div class="hero"><div class="rings"></div>
+    <div class="brand"><div class="logo"><svg class="i" viewBox="0 0 24 24" style="color:#fff"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 12l6-6"/></svg></div>DroneVision <b>AI</b></div>
+    <h1>See what happened.<br><span>Know where. Decide faster.</span></h1>
+    <p>Agentic geospatial intelligence for aerial video: detect, track, reason over time and space, score risk, and keep a human in the loop.</p>
+    <div class="feat"><span class="chip tag">Live AI view</span><span class="chip tag">GeoJSON zones</span><span class="chip tag">Explainable risk</span><span class="chip tag">Human review</span></div>
+  </div>
+  <div class="loginbox"><div class="card"><div style="font-size:20px;font-weight:800;margin-bottom:6px">Sign in</div>
+    <label>Username</label><input id="u" autocomplete="username" placeholder="admin · operator · analyst · viewer">
+    <label>Password</label><input id="p" type="password" autocomplete="current-password">
+    <p><button class="btn" id="go" style="width:100%;justify-content:center">Sign in</button></p><div id="lerr" class="err"></div>
+    <p class="mut" style="font-size:12px;margin:8px 0 0">Password = the <code>SEED_PASSWORD</code> from your <code>.env</code>.</p></div></div>
+</div>
+
+<div id="app" class="hide">
+  <aside id="side">
+    <div class="brand"><div class="logo"><svg class="i" viewBox="0 0 24 24" style="color:#fff"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 12l6-6"/></svg></div><span>DroneVision <b>AI</b></span></div>
+    <nav id="nav"></nav>
+    <div class="sidefoot"><div class="me"><div class="avatar" id="av">A</div><div style="min-width:0"><div id="who" style="font-weight:700"></div><div class="mut" id="role" style="font-size:12px"></div></div></div>
+      <button class="btn sec sm" id="out" style="width:100%;margin-top:10px;justify-content:center"><svg class="i" viewBox="0 0 24 24" id="ico-out"></svg>Sign out</button></div>
+  </aside>
+  <div id="main">
+    <header id="top"><h2 id="ptitle">Command Center</h2>
+      <select id="msel" title="Active mission"></select>
+      <span class="pill wait" id="live" title="Live updates over WebSocket"><span class="dot"></span><span id="livet">connecting</span></span>
+      <button class="iconbtn" id="snd" title="Sound alert on critical incidents"><svg class="i" viewBox="0 0 24 24" id="ico-snd"></svg></button>
+      <button class="iconbtn" id="thm" title="Theme"><svg class="i" viewBox="0 0 24 24" id="ico-thm"></svg></button>
+      <button class="iconbtn" id="bell" title="Live events"><svg class="i" viewBox="0 0 24 24" id="ico-bell"></svg></button>
+    </header>
+    <main id="view"></main>
+  </div>
+</div>
+<div id="scrim"></div><aside id="drawer"><div id="idet"></div></aside><div id="zdraw"></div><div id="toasts"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ICON={grid:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',
+target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+map:'<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>',
+alert:'<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+chart:'<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+shield:'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',bell:'<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+play:'<polygon points="5 3 19 12 5 21 5 3"/>',upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>',
+pen:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',sun:'<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>',
+vol:'<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>',x:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+out:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',car:'<path d="M5 17h14M3 13l2-6h14l2 6v4H3z"/><circle cx="7.5" cy="17" r="1.5"/><circle cx="16.5" cy="17" r="1.5"/>',
+users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',check:'<polyline points="20 6 9 17 4 12"/>',radio:'<circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"/>'};
+const ic=(n,cls='')=>`<svg class="i ${cls}" viewBox="0 0 24 24">${ICON[n]||''}</svg>`;
+const SEV={CRITICAL:'#ff4d5e',HIGH:'#ff8a3d',MEDIUM:'#f5c242',LOW:'#3ddc97'};
+const CLS={car:'#4cc2ff',truck:'#7c6cff',bus:'#7c6cff',person:'#f5c242',motorcycle:'#3ddc97',bicycle:'#3ddc97'};
+const S={token:sessionStorage.getItem('dv_token'),user:JSON.parse(sessionStorage.getItem('dv_user')||'null'),tab:'overview',mission:null,missions:[],timer:null,map:null,lmap:null,
+  feed:[],unread:0,live:null,conn:'wait',sound:false,markers:{},trails:{},ws:null,retry:0};
+const can=(...r)=>S.user&&r.includes(S.user.role);
+const sevBadge=s=>`<span class="badge ${esc(s)}">${esc(s)}</span>`;
+const mmss=t=>{t=+t||0;return String(Math.floor(t/60)).padStart(2,'0')+':'+(t%60).toFixed(1).padStart(4,'0')};
+const clock=()=>new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+async function api(path,opt={}){
+  const h={...(opt.headers||{})};if(S.token)h.Authorization='Bearer '+S.token;
+  if(opt.json){h['Content-Type']='application/json';opt.body=JSON.stringify(opt.json)}
+  const r=await fetch('/api/v1'+path,{...opt,headers:h});
+  if(r.status===401&&S.token){logout();throw new Error('Session expired')}
+  if(!r.ok){let m=r.statusText;try{const j=await r.json();m=typeof j.detail==='string'?j.detail:JSON.stringify(j.detail)}catch(e){}throw new Error(m)}
+  return (r.headers.get('content-type')||'').includes('json')?r.json():r;
+}
+async function blobUrl(path){const r=await api(path);return URL.createObjectURL(await r.blob())}
+async function download(path,name){const r=await api(path);const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=name;a.click()}
+
+/* ---------- auth / shell ---------- */
+$('#go').onclick=async()=>{try{const r=await api('/auth/login',{method:'POST',json:{username:$('#u').value,password:$('#p').value}});
+  S.token=r.access_token;S.user=r.user;sessionStorage.setItem('dv_token',S.token);sessionStorage.setItem('dv_user',JSON.stringify(S.user));start()}catch(e){$('#lerr').textContent=e.message}};
+$('#p').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
+function logout(){sessionStorage.clear();S.token=null;S.user=null;location.reload()}
+$('#out').onclick=logout;
+$('#ico-out').innerHTML=ICON.out;$('#ico-bell').innerHTML=ICON.bell;
+const setTheme=t=>{document.documentElement.dataset.theme=t;try{localStorage.setItem('dv_theme',t)}catch(e){}$('#ico-thm').innerHTML=t==='dark'?ICON.sun:'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'};
+try{setTheme(localStorage.getItem('dv_theme')||'dark')}catch(e){setTheme('dark')}
+$('#thm').onclick=()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
+$('#ico-snd').innerHTML=ICON.vol;$('#snd').style.opacity=.45;
+$('#snd').onclick=()=>{S.sound=!S.sound;$('#snd').style.opacity=S.sound?1:.45;if(S.sound)beep(660,.08);toast(S.sound?'Sound alerts ON':'Sound alerts OFF')};
+$('#bell').onclick=()=>{S.unread=0;paintBell();go('overview')};
+const TABS=[['overview','Command Center','grid'],['live','Live Ops','radio'],['missions','Missions','target'],['map','Map','map'],['incidents','Incident Center','alert'],['analytics','Analytics','chart'],['assistant','AI Assistant','chat'],['reports','Reports','file'],['admin','Admin','shield']];
+function start(){
+  $('#login').classList.add('hide');$('#app').classList.remove('hide');$('#who').textContent=S.user.username;$('#role').textContent=S.user.role;$('#av').textContent=S.user.username[0].toUpperCase();
+  $('#nav').innerHTML=TABS.filter(t=>t[0]!=='admin'||can('admin')).map(t=>`<button data-t="${t[0]}">${ic(t[2])}<span>${t[1]}</span>${t[0]==='incidents'?'<span class="cnt hide" id="icnt"></span>':''}</button>`).join('');
+  $('#nav').onclick=e=>{const b=e.target.closest('button[data-t]');if(b)go(b.dataset.t)};
+  $('#msel').onchange=e=>{S.mission=+e.target.value;go(S.tab)};
+  refreshMissions().then(()=>{go(S.tab);connectWS();badgeCounts()});
+}
+async function refreshMissions(){S.missions=await api('/missions');if(!S.mission||!S.missions.find(m=>m.id===S.mission))S.mission=S.missions[0]?.id||null;
+  $('#msel').innerHTML=S.missions.length?S.missions.map(m=>`<option value="${m.id}" ${m.id===S.mission?'selected':''}>${esc(m.code)} — ${esc(m.name)} [${esc(m.status)}]</option>`).join(''):'<option value="">No missions yet</option>'}
+async function badgeCounts(){try{const l=await api('/incidents?status=pending');const n=l.filter(i=>['HIGH','CRITICAL'].includes(i.severity)).length;const c=$('#icnt');if(c){c.textContent=n;c.classList.toggle('hide',!n)}}catch(e){}}
+async function go(tab){S.tab=tab;clearInterval(S.timer);killMaps();
+  $$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));$('#ptitle').textContent=(TABS.find(t=>t[0]===tab)||[])[1]||'';
+  $('#view').innerHTML='<div class="grid k4">'+'<div class="card" style="height:92px;opacity:.5"></div>'.repeat(4)+'</div>';
+  try{await VIEWS[tab]()}catch(e){$('#view').innerHTML=`<div class="card err">${esc(e.message)}</div>`}}
+function killMaps(){for(const k of ['map','lmap'])if(S[k]){try{S[k].remove()}catch(e){}S[k]=null}S.markers={};S.trails={}}
+function toast(msg,col){const d=document.createElement('div');d.className='toast';if(col)d.style.borderLeftColor=col;d.textContent=msg;$('#toasts').appendChild(d);setTimeout(()=>d.remove(),6000)}
+function beep(f=880,d=.15){try{const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.frequency.value=f;o.connect(g);g.connect(c.destination);g.gain.setValueAtTime(.12,c.currentTime);o.start();o.stop(c.currentTime+d)}catch(e){}}
+function countUp(el,to){const t0=performance.now(),d=700;const f=t=>{const k=Math.min(1,(t-t0)/d);el.textContent=Math.round(to*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(f)};requestAnimationFrame(f)}
+
+/* ---------- reusable widgets ---------- */
+const realEvents=o=>Object.fromEntries(Object.entries(o).filter(([k])=>!k.startsWith('OBJECT_')));   // hide informational entry/exit noise
+const kpi=(icon,val,label,cls='')=>`<div class="card kpi ${cls}"><div class="ico">${ic(icon)}</div><div><div class="v" data-n="${val}">0</div><div class="l">${esc(label)}</div></div></div>`;
+const runCounts=()=>$$('[data-n]').forEach(e=>countUp(e,+e.dataset.n));
+function donut(obj,colors){const tot=Object.values(obj).reduce((a,b)=>a+b,0),C=2*Math.PI*40;let off=0;
+  const segs=Object.entries(obj).filter(([,v])=>v>0).map(([k,v])=>{const len=C*v/(tot||1),s=`<circle cx="60" cy="60" r="40" fill="none" stroke="${colors[k]||'#4cc2ff'}" stroke-width="16" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"/>`;off+=len;return s}).join('');
+  return `<div class="donutwrap"><svg class="donut" width="130" height="130" viewBox="0 0 120 120"><circle cx="60" cy="60" r="40" fill="none" stroke="rgba(120,150,190,.15)" stroke-width="16"/>${segs}<text x="60" y="67" text-anchor="middle" font-size="22">${tot}</text></svg>
+  <div class="legend">${Object.entries(obj).map(([k,v])=>`<div><i style="background:${colors[k]||'#4cc2ff'}"></i>${esc(k)} <b>${v}</b></div>`).join('')||'<span class="mut">No data</span>'}</div></div>`}
+function bars(obj,color){const mx=Math.max(1,...Object.values(obj));return Object.entries(obj).map(([k,v])=>`<div class="hbar"><b>${esc(k)}</b><div class="bar"><i style="width:${100*v/mx}%;${color?`background:${color}`:''}"></i></div><span>${v}</span></div>`).join('')||'<div class="empty">No data yet</div>'}
+function gauge(score,sev){const C=2*Math.PI*52,col=SEV[sev]||'#4cc2ff',len=C*score/100;
+  return `<div class="gauge"><svg width="120" height="120" viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="rgba(120,150,190,.18)" stroke-width="10"/><circle cx="60" cy="60" r="52" fill="none" stroke="${col}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${len} ${C}" style="filter:drop-shadow(0 0 6px ${col})"/></svg><div class="n" style="color:${col}"><div>${score}<small>/ 100</small></div></div></div>`}
+function incCard(i){return `<div class="icard ${esc(i.severity)}" data-i="${i.id}"><div class="sc">${i.risk_score}</div><div style="min-width:0"><div><b>${esc(i.code)}</b> · ${esc(i.object_class)} #${i.track_id} ${sevBadge(i.severity)}</div>
+  <div class="mut" style="font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc((i.evidence||[]).join(' · ')||i.primary_type)}</div></div><div style="text-align:right"><div class="st ${esc(i.status)}">${esc(i.status)}</div><div class="mut" style="font-size:12px">${mmss(i.start_t)}</div></div></div>`}
+const bindInc=root=>(root||document).querySelectorAll('.icard').forEach(r=>r.onclick=()=>openIncident(+r.dataset.i));
+
+/* ---------- live panel (shared by Command Center and Live Ops) ---------- */
+const liveBox=()=>`<div class="livebox ${S.live?'has':''}"><img class="liveimg" alt="live annotated frame" ${S.live?`src="data:image/jpeg;base64,${S.live.jpeg}"`:''}>
+  <div class="liveidle"><div class="radar"></div><div><b>No live stream</b></div><div style="font-size:13px">Go to Missions, upload a video and press <b>Process live</b>.</div></div>
+  <div class="hud"><span class="rec">● LIVE</span><span class="lt">t=0.0s</span><span class="ln">frame 0/0</span><span class="lg">GPS –</span><span class="lo">0 objects</span></div></div>
+  <div class="lprog"><i class="lpbar"></i></div>`;
+let lraf=0;
+function scheduleLive(){if(!lraf)lraf=requestAnimationFrame(()=>{lraf=0;paintLive()})}
+function paintLive(){const m=S.live;if(!m)return;
+  $$('.liveimg').forEach(img=>{img.src='data:image/jpeg;base64,'+m.jpeg;img.closest('.livebox').classList.add('has')});
+  $$('.lt').forEach(e=>e.textContent=`t=${m.t.toFixed(1)}s`);$$('.ln').forEach(e=>e.textContent=`frame ${m.n}/${m.of}`);
+  $$('.lg').forEach(e=>e.textContent=`GPS ${m.tel.lat.toFixed(5)}, ${m.tel.lon.toFixed(5)} · ${m.tel.alt}m`);$$('.lo').forEach(e=>e.textContent=`${m.objects.length} objects`);
+  $$('.lpbar').forEach(e=>e.style.width=Math.min(100,100*m.n/Math.max(1,m.of))+'%');
+  const tb=$('#objs');if(tb)tb.innerHTML=m.objects.map(o=>`<tr><td><span class="chip tag" style="margin:0;border-color:${CLS[o.cls]||'#4cc2ff'}">${esc(o.cls)} #${o.id}</span></td><td>${(o.conf*100).toFixed(0)}%</td><td class="mono" style="font-size:11.5px">${o.lat.toFixed(5)}, ${o.lon.toFixed(5)}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">Nothing detected</td></tr>';
+  if(S.lmap&&window.L)liveMap(m)}
+function liveMap(m){for(const o of m.objects){const ll=[o.lat,o.lon];let mk=S.markers[o.id];
+  if(!mk){mk=S.markers[o.id]=L.circleMarker(ll,{radius:6,color:'#fff',weight:1.5,fillColor:CLS[o.cls]||'#4cc2ff',fillOpacity:.95}).addTo(S.lmap);S.trails[o.id]=L.polyline([ll],{color:CLS[o.cls]||'#4cc2ff',weight:2,opacity:.7}).addTo(S.lmap)}
+  else{mk.setLatLng(ll);S.trails[o.id].addLatLng(ll)}}
+  if(!S.lfit&&m.objects.length){S.lfit=true;S.lmap.setView([m.tel.lat,m.tel.lon],19)}}
+
+/* ---------- feed ---------- */
+function pushFeed(kind,text,sev){S.feed.unshift({t:clock(),kind,text,sev});S.feed.length=Math.min(S.feed.length,60);paintFeed()}
+function paintFeed(){const el=$('#feed');if(el)el.innerHTML=S.feed.map(f=>`<div class="fi ${esc(f.sev||f.kind)}"><div class="m">${esc(f.text)}</div><div class="t">${esc(f.t)}</div></div>`).join('')||'<div class="empty">Waiting for live events…</div>'}
+function paintBell(){const b=$('#bell');b.querySelector('.bd')?.remove();if(S.unread){const s=document.createElement('span');s.className='bd';s.style.cssText='position:absolute;top:-5px;right:-5px;background:var(--crit);color:#fff;border-radius:99px;font-size:10px;padding:0 6px;font-weight:700';s.textContent=S.unread;b.appendChild(s)}}
+
+/* ---------- VIEWS ---------- */
+const VIEWS={
+async overview(){
+  const [o,m,inc]=await Promise.all([api('/analytics/overview'),can('admin','operator','analyst')?api('/system/metrics'):Promise.resolve(null),api('/incidents')]);
+  if(!S.feedSeed){S.feedSeed=1;inc.slice(0,5).reverse().forEach(i=>S.feed.unshift({t:i.created_at.slice(11,19),kind:'inc',sev:i.severity,text:`${i.code}: ${i.object_class} #${i.track_id} — ${i.severity} (${i.risk_score}/100)`}))}
+  $('#view').innerHTML=`<div class="grid k4">${kpi('target',o.active_missions,'Active missions ('+o.total_missions+' total)','vio')}${kpi('car',o.total_objects,'Tracked objects')}${kpi('alert',o.active_incidents,'Active incidents','grn')}${kpi('shield',o.high_risk_events,'High-risk events','red')}</div>
+  <div class="grid g21"><div class="card"><div class="ch">${ic('radio')} Live AI view</div>${liveBox()}</div>
+   <div class="card"><div class="ch">${ic('bell')} Live events</div><div class="feed" id="feed"></div></div></div>
+  <div class="grid g3"><div class="card"><div class="ch">Risk distribution</div>${donut(o.risk_distribution,SEV)}</div><div class="card"><div class="ch">Events by type</div>${bars(realEvents(o.events_by_type))}</div>
+   <div class="card"><div class="ch">System health</div>${m?`<div class="hbar"><b>Memory (MB)</b><div class="bar"><i style="width:${Math.min(100,m.memory_rss_mb/20)}%"></i></div><span>${m.memory_rss_mb}</span></div><div class="hbar"><b>Processing FPS</b><div class="bar"><i style="width:${Math.min(100,(m.avg_processing_fps||0)*2)}%"></i></div><span>${m.avg_processing_fps??'–'}</span></div>
+   <div class="hbar"><b>Videos processed</b><div class="bar"><i style="width:${Math.min(100,m.videos_processed*10)}%"></i></div><span>${m.videos_processed}</span></div><div class="hbar"><b>Failed jobs</b><div class="bar"><i style="width:${Math.min(100,m.failed_jobs*20)}%;background:var(--crit)"></i></div><span>${m.failed_jobs}</span></div>
+   <div style="margin-top:8px"><span class="pill"><span class="dot" style="background:${m.queue_busy?'var(--med)':'var(--low)'}"></span>worker ${m.queue_busy?'busy':'idle'}</span></div>`:'<div class="empty">Metrics are for operators, analysts and admins.</div>'}</div></div>
+  <div class="card"><div class="ch">${ic('alert')} Top incidents</div>${inc.slice(0,5).map(incCard).join('')||'<div class="empty">No incidents yet. Create a mission, upload a video and process it.</div>'}</div>`;
+  runCounts();paintFeed();bindInc();paintLive();
+},
+async live(){
+  await refreshMissions();const mi=S.missions.find(m=>m.id===S.mission),vids=mi?mi.videos:[];
+  $('#view').innerHTML=`<div class="grid g21"><div class="card"><div class="ch">${ic('radio')} Live AI view <span class="sp"></span>
+    ${can('admin','operator')&&vids.length?`<select id="lvid" style="width:auto">${vids.map(v=>`<option value="${v.id}">${esc(v.filename)} (${esc(v.status)})</option>`).join('')}</select> <button class="btn live sm" id="lgo">${ic('play')} Process live</button>`:''}</div>
+    ${liveBox()}<div class="mut" style="font-size:12.5px;margin-top:8px">Frames, detections and GPS are streamed over WebSocket while the pipeline runs. "Process live" plays the clip at real-time speed.</div></div>
+   <div class="card"><div class="ch">Objects in frame</div><table><thead><tr><th>Object</th><th>Conf.</th><th>Lat, Lon</th></tr></thead><tbody id="objs"><tr><td colspan="3" class="empty">Waiting for a stream…</td></tr></tbody></table></div></div>
+  <div class="grid g2"><div class="card"><div class="ch">${ic('map')} Live geo-position</div><div id="lmap"></div></div><div class="card"><div class="ch">${ic('bell')} Live events</div><div class="feed" id="feed"></div></div></div>`;
+  paintFeed();paintLive();
+  if($('#lgo'))$('#lgo').onclick=async()=>{try{S.lfit=false;await api(`/videos/${$('#lvid').value}/process?live=true`,{method:'POST'});toast('Live processing started','#7c6cff');pushFeed('sys','Live processing started')}catch(e){toast(e.message,'#ff4d5e')}};
+  if(window.L){S.lmap=L.map('lmap',{zoomControl:true}).setView([mi?mi.start_lat:24.8607,mi?mi.start_lon:67.0011],19);L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:21,attribution:'© OpenStreetMap © CARTO'}).addTo(S.lmap);
+    try{const zs=await api('/zones');zs.filter(z=>z.active).forEach(z=>{const ring=(z.geojson.coordinates[0]||[]).map(p=>[p[1],p[0]]);L.polygon(ring,{color:'#ff4d5e',weight:2,fillOpacity:.15}).addTo(S.lmap)})}catch(e){}}
+},
+async missions(){
+  await refreshMissions();const zs=await api('/zones');const m=S.missions.find(x=>x.id===S.mission);
+  $('#view').innerHTML=`<div class="grid" style="grid-template-columns:minmax(280px,1fr) minmax(0,2fr)"><div>
+   <div class="card" style="margin-bottom:16px"><div class="ch">${ic('target')} Missions</div>${S.missions.map(x=>`<div class="mcard ${x.id===S.mission?'on':''}" data-m="${x.id}"><b>${esc(x.code)}</b> · ${esc(x.name)}<div class="mut" style="font-size:12px">${esc(x.status)} · ${x.incident_count} incident(s) · ${x.videos.length} video(s)</div></div>`).join('')||'<div class="empty">No missions yet</div>'}</div>
+   ${can('admin','operator')?`<div class="card"><div class="ch">New mission</div><label>Name</label><input id="mn" value="Demo patrol"><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label>Lat</label><input id="mla" value="24.8607"></div><div><label>Lon</label><input id="mlo" value="67.0011"></div><div><label>Altitude m</label><input id="mal" value="60"></div><div><label>Heading °</label><input id="mhd" value="0"></div></div>
+   <p><button class="btn" id="mk">${ic('check')} Create mission</button></p><div class="mut" style="font-size:12px">GPS is simulated deterministically from these values.</div></div>`:''}</div>
+   <div><div class="card" id="mdetail" style="margin-bottom:16px"></div>
+   <div class="card"><div class="ch">${ic('map')} Zones</div>${zs.map(z=>`<span class="chip tag"><i class="dot" style="background:${z.zone_type==='restricted'?'var(--crit)':'var(--acc)'}"></i>${esc(z.name)} <span class="mut">${esc(z.zone_type)}${z.active?'':' (off)'}</span></span>`).join('')||'<div class="empty">No zones configured.</div>'}
+   ${can('admin')?`<details style="margin-top:12px"><summary class="mut" style="cursor:pointer">Add zone from GeoJSON</summary><label>Name</label><input id="zn" value="Restricted Zone A"><label>Type</label>
+   <select id="zt"><option>restricted</option><option>inspection</option><option>emergency</option><option>construction</option><option>monitoring</option><option>road</option><option>custom</option></select>
+   <label>GeoJSON polygon</label><textarea id="zg" rows="5" placeholder='{"type":"Polygon","coordinates":[[[lon,lat],…]]}'></textarea>
+   <p><button class="btn sec" id="zdemo">Load demo zone</button> <button class="btn" id="zadd">Add zone</button></p><div id="zmsg"></div></details>`:'<div class="mut" style="margin-top:8px">Only admins manage zones.</div>'}</div></div></div>`;
+  $$('.mcard').forEach(c=>c.onclick=()=>{S.mission=+c.dataset.m;refreshMissions().then(()=>VIEWS.missions())});
+  if($('#mk'))$('#mk').onclick=async()=>{try{const r=await api('/missions',{method:'POST',json:{name:$('#mn').value,start_lat:+$('#mla').value,start_lon:+$('#mlo').value,altitude:+$('#mal').value,heading:+$('#mhd').value}});S.mission=r.id;VIEWS.missions()}catch(e){toast(e.message,'#ff4d5e')}};
+  if($('#zdemo'))$('#zdemo').onclick=async()=>{const r=await fetch('/sim/zone_restricted_a.geojson');$('#zg').value=JSON.stringify(await r.json(),null,1)};
+  if($('#zadd'))$('#zadd').onclick=async()=>{try{await api('/zones',{method:'POST',json:{name:$('#zn').value,zone_type:$('#zt').value,geojson:JSON.parse($('#zg').value)}});VIEWS.missions()}catch(e){$('#zmsg').innerHTML=`<span class="err">${esc(e.message)}</span>`}};
+  if(m)renderMission(m);else $('#mdetail').innerHTML='<div class="empty">Create a mission to begin.</div>';
+},
+async map(){
+  $('#view').innerHTML=`<div class="grid" style="grid-template-columns:minmax(0,3fr) minmax(260px,1fr)"><div class="card"><div class="ch">${ic('map')} Mission map <span class="sp"></span><span class="mut" style="text-transform:none;letter-spacing:0">zones · trajectories · incidents (live)</span></div><div id="map"></div></div>
+   <div class="card"><div class="ch">Incidents</div><div id="mlist"></div></div></div>`;
+  if(!S.mission||!window.L)return;
+  const fc=await api(`/missions/${S.mission}/geojson`);
+  S.map=L.map('map');L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:21,attribution:'© OpenStreetMap © CARTO'}).addTo(S.map);
+  const cc={car:'#4cc2ff',person:'#f5c242',truck:'#7c6cff',bus:'#7c6cff'};
+  const g=L.geoJSON(fc,{style:f=>f.properties.kind==='zone'?{color:'#ff4d5e',weight:2,fillOpacity:.18,dashArray:'6 4'}:{color:cc[f.properties.class]||'#8696ab',weight:2,opacity:.85},
+   pointToLayer:(f,ll)=>L.circleMarker(ll,{radius:11,color:'#fff',weight:2,fillColor:SEV[f.properties.severity]||'#888',fillOpacity:.95}),
+   onEachFeature:(f,l)=>{const p=f.properties;
+     if(p.kind==='incident')l.bindPopup(`<b>${esc(p.code)}</b><br>${esc(p.object)}<br>${esc(p.severity)} · ${p.risk_score}/100<br>${esc(p.status)}<br><a href="#" onclick="openIncident(${p.id});return false">Open incident</a>`);
+     else if(p.kind==='zone')l.bindTooltip(`${esc(p.name)} (${esc(p.zone_type)})`);else l.bindTooltip(`${esc(p.class)} #${p.track_id}`)}}).addTo(S.map);
+  try{S.map.fitBounds(g.getBounds().pad(.2),{maxZoom:20})}catch(e){S.map.setView([24.8607,67.0011],18)}
+  const incs=fc.features.filter(f=>f.properties.kind==='incident').map(f=>f.properties);
+  $('#mlist').innerHTML=incs.map(p=>`<div class="icard ${esc(p.severity)}" data-i="${p.id}"><div class="sc">${p.risk_score}</div><div><b>${esc(p.code)}</b><div class="mut" style="font-size:12px">${esc(p.object)}</div></div><div class="st ${esc(p.status)}">${esc(p.status)}</div></div>`).join('')||'<div class="empty">No incidents on this mission</div>';bindInc($('#mlist'));
+},
+async incidents(){
+  S.sevf=S.sevf||'';
+  $('#view').innerHTML=`<div class="card"><div class="ch">${ic('alert')} Incident Center <span class="sp"></span><select id="fst" style="width:auto"><option value="">All statuses</option><option>pending</option><option>confirmed</option><option>dismissed</option><option>investigating</option></select></div>
+   <div id="sevchips">${['','CRITICAL','HIGH','MEDIUM','LOW'].map(s=>`<button class="chip ${S.sevf===s?'on':''}" data-s="${s}">${s||'All'}</button>`).join('')}</div><div id="ilist" style="margin-top:12px"></div></div>`;
+  const load=async()=>{const q=new URLSearchParams();if(S.sevf)q.set('severity',S.sevf);if($('#fst')?.value)q.set('status',$('#fst').value);
+    const l=await api('/incidents?'+q);if(!$('#ilist'))return;$('#ilist').innerHTML=l.map(incCard).join('')||'<div class="empty">No incidents match.</div>';bindInc($('#ilist'))};
+  S.reloadInc=load;$('#fst').onchange=load;$$('#sevchips .chip').forEach(c=>c.onclick=()=>{S.sevf=c.dataset.s;$$('#sevchips .chip').forEach(x=>x.classList.toggle('on',x===c));load()});
+  await load();if(S.openInc){openIncident(S.openInc);S.openInc=null}
+},
+async analytics(){
+  const o=await api('/analytics/overview'),ev=o.events_over_time,mx=Math.max(1,...ev.map(e=>e[1]));
+  $('#view').innerHTML=`<div class="grid k4">${kpi('car',o.total_objects,'Tracked objects')}${kpi('alert',o.zone_violations,'Zone violations','red')}${kpi('chart',o.detections_total,'stored detections','vio')}${kpi('shield',o.high_risk_events,'High-risk incidents','red')}</div>
+  <div class="grid g3"><div class="card"><div class="ch">Object counts</div>${donut(o.object_counts,CLS)}</div><div class="card"><div class="ch">Risk distribution</div>${donut(o.risk_distribution,SEV)}</div><div class="card"><div class="ch">Events by type</div>${bars(realEvents(o.events_by_type))}</div></div>
+  <div class="card"><div class="ch">Events over time (5 s buckets)</div><div class="vbars">${ev.map(e=>`<div style="height:${100*e[1]/mx}%" title="${e[1]} events"><span>${e[0]}s</span></div>`).join('')||'<div class="empty" style="width:100%">No data</div>'}</div></div>`;runCounts();
+},
+async assistant(){
+  if(!can('admin','operator','analyst')){$('#view').innerHTML='<div class="card empty">The assistant is available to operators, analysts and admins.</div>';return}
+  const ex=['Show all high-risk events today.','Which vehicles entered restricted zones?','Why was vehicle #1 classified as high risk?','How long did vehicle #1 remain stationary?','What is the procedure for a vehicle entering Restricted Zone A?',"Generate a report for today's incidents."];
+  $('#view').innerHTML=`<div class="card"><div class="ch">${ic('chat')} AI Investigation Assistant <span class="sp"></span><span class="mut" style="text-transform:none;letter-spacing:0">grounded: answers come only from database + policy lookups</span></div><div class="chat" id="chat"></div>
+   <div style="margin-top:10px">${ex.map(e=>`<button class="chip">${esc(e)}</button>`).join('')}</div><div style="display:flex;gap:10px;margin-top:10px"><input id="q" placeholder="Ask about incidents, objects, zones, policies…"><button class="btn" id="ask">Ask</button></div></div>`;
+  const add=(c,t,x='')=>{const d=document.createElement('div');d.className='msg '+c;const av=document.createElement('div');av.className='av';av.textContent=c==='me'?S.user.username[0].toUpperCase():'AI';const b=document.createElement('div');b.className='b';b.textContent=t;
+    if(x){const s=document.createElement('div');s.className='tools';s.textContent=x;b.appendChild(s)}d.append(av,b);$('#chat').appendChild(d);$('#chat').scrollTop=1e9;return d};
+  const send=async()=>{const q=$('#q').value.trim();if(!q)return;$('#q').value='';add('me',q);const ty=add('bot','');ty.querySelector('.b').innerHTML='<span class="typing"><i></i><i></i><i></i></span>';
+    try{const r=await api('/assistant/query',{method:'POST',json:{question:q}});ty.remove();add('bot',r.answer,(r.tool_calls.length?'tools: '+r.tool_calls.map(c=>c.tool).join(', '):'no tool used')+(r.sources.length?' · sources: '+r.sources.map(s=>s.source).join(', '):''))}catch(e){ty.remove();add('bot','Error: '+e.message)}};
+  $('#ask').onclick=send;$('#q').onkeydown=e=>{if(e.key==='Enter')send()};$$('.chip').forEach(c=>c.onclick=()=>{$('#q').value=c.textContent;send()});
+  add('bot','Ask me about incidents, tracked objects, zones, or operating procedures.');
+},
+async reports(){
+  const rs=await api('/reports');
+  $('#view').innerHTML=`<div class="grid g2"><div class="card"><div class="ch">${ic('file')} Generate report</div>${can('admin','operator','analyst')?`<p class="mut">Report for the mission selected at the top: incidents, evidence frames, risk reasons, operator decisions and model versions.</p><button class="btn" id="gen">${ic('file')} Generate report</button><div id="rmsg"></div>`:'<div class="empty">Your role can view reports but not generate them.</div>'}</div>
+   <div class="card"><div class="ch">Reports</div><table><tr><th>#</th><th>Kind</th><th>Summary</th><th>Download</th></tr>${rs.map(r=>`<tr><td>${r.id}</td><td>${esc(r.kind)}</td><td>${esc(r.summary).slice(0,120)}…</td><td>${['pdf','json','csv'].map(f=>`<a href="#" data-r="${r.id}" data-f="${f}">${f.toUpperCase()}</a>`).join(' · ')}</td></tr>`).join('')}</table></div></div>`;
+  if($('#gen'))$('#gen').onclick=async()=>{try{await api('/reports',{method:'POST',json:{mission_id:S.mission}});go('reports')}catch(e){$('#rmsg').innerHTML=`<span class="err">${esc(e.message)}</span>`}};
+  $('#view').onclick=e=>{const a=e.target.closest('a[data-r]');if(a){e.preventDefault();download(`/reports/${a.dataset.r}/download?format=${a.dataset.f}`,`report_${a.dataset.r}.${a.dataset.f}`)}};
+},
+async admin(){
+  const [au,us,mo]=await Promise.all([api('/audit?limit=60'),api('/users'),api('/models')]);
+  $('#view').innerHTML=`<div class="grid g2"><div class="card"><div class="ch">${ic('users')} Users</div><table>${us.map(u=>`<tr><td>${esc(u.username)}</td><td><span class="chip tag" style="margin:0">${esc(u.role)}</span></td></tr>`).join('')}</table>
+   <div class="ch" style="margin-top:16px">Add user</div><div style="display:grid;gap:8px"><input id="nu" placeholder="username"><input id="np" type="password" placeholder="password (10+ chars)"><select id="nr"><option>viewer</option><option>analyst</option><option>operator</option><option>admin</option></select><button class="btn" id="au">Add user</button></div><div id="umsg"></div></div>
+   <div class="card"><div class="ch">Model registry</div><table><tr><th>Model</th><th>Version</th><th>Task</th><th>Status</th></tr>${mo.map(m=>`<tr><td>${esc(m.name)}</td><td>${esc(m.version)}</td><td>${esc(m.task)}</td><td>${esc(m.status)}</td></tr>`).join('')}</table></div></div>
+   <div class="card"><div class="ch">Audit log</div><table><tr><th>Time</th><th>User</th><th>Action</th><th>Resource</th><th>Change</th></tr>${au.map(a=>`<tr><td>${esc(a.timestamp.slice(0,19))}</td><td>${esc(a.user)}</td><td>${esc(a.action)}</td><td>${esc(a.resource)}</td><td class="mut">${esc(JSON.stringify(a.previous_state||''))} → ${esc(JSON.stringify(a.new_state||''))}</td></tr>`).join('')}</table></div>`;
+  $('#au').onclick=async()=>{try{await api('/users',{method:'POST',json:{username:$('#nu').value,password:$('#np').value,role:$('#nr').value}});go('admin')}catch(e){$('#umsg').innerHTML=`<span class="err">${esc(e.message)}</span>`}};
+}};
+
+/* ---------- incident drawer ---------- */
+const drawerOpen=on=>{$('#drawer').classList.toggle('on',on);$('#scrim').classList.toggle('on',on)};
+$('#scrim').onclick=()=>{drawerOpen(false);closeZone()};document.addEventListener('keydown',e=>{if(e.key==='Escape'){drawerOpen(false);closeZone()}});
+window.openIncident=async id=>{
+  const i=await api('/incidents/'+id);let img='';if(i.has_frame){try{img=`<img class="evimg" src="${await blobUrl(`/incidents/${id}/frame`)}" alt="evidence frame">`}catch(e){}}
+  $('#idet').innerHTML=`<div class="ch">${sevBadge(i.severity)} <b style="font-size:16px;text-transform:none;letter-spacing:0;color:var(--tx)">${esc(i.code)}</b><span class="sp"></span><button class="iconbtn" id="dclose" title="Close">${ic('x')}</button></div>
+   <div style="display:flex;gap:18px;align-items:center;margin:6px 0 4px">${gauge(i.risk_score,i.severity)}<div><div style="font-size:18px;font-weight:800">${esc(i.object_class)} #${i.track_id}</div><div class="mut">${esc(i.primary_type)} · ${mmss(i.start_t)} → ${mmss(i.end_t)}</div><div class="mut mono" style="font-size:12px">${i.lat.toFixed(5)}, ${i.lon.toFixed(5)}</div><div class="st ${esc(i.status)}" style="margin-top:6px">${esc(i.status)}${i.requires_review?' · human review required':''}</div></div></div>
+   ${img}<div class="ch" style="margin-top:10px">Why this score — Reasons</div><div>${i.reasons.map(r=>`<span class="chip tag">${esc(r)}</span>`).join('')}</div>
+   <div class="ch" style="margin-top:12px">Evidence timeline</div><div class="tl">${i.evidence.map(e=>`<div>${esc(e)}</div>`).join('')||'<div class="mut">–</div>'}</div>
+   <div class="ch" style="margin-top:6px">AI recommendation</div><div><b>${esc(i.recommendation)}</b></div><div class="mut" style="font-size:12px;margin:4px 0">actions: ${i.actions.map(esc).join(', ')} · <b>no autonomous physical action</b></div>
+   ${i.vlm?`<div class="ch" style="margin-top:10px">Vision-language analysis</div><div>${esc(i.vlm.summary)}</div><div class="mut" style="font-size:12px">${esc(i.vlm.provider)}:${esc(i.vlm.model)} · concern ${esc(i.vlm.concern_level)}</div>`:''}
+   <div class="ch" style="margin-top:12px">Decisions</div><div>${i.reviews.map(r=>`<div class="fi sys"><div class="m"><b>${esc(r.operator)}</b>: ${esc(r.decision)} — ${esc(r.comment)}</div><div class="t">${esc(r.timestamp.slice(11,19))}</div></div>`).join('')||'<div class="mut">No decisions yet</div>'}</div>
+   <div class="mut mono" style="font-size:11px;margin-top:10px">${esc(JSON.stringify(i.model_versions))}</div>
+   ${can('admin','operator')?`<label>Operator comment</label><textarea id="rc" rows="2" placeholder="Required when dismissing"></textarea><p style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ok" data-d="confirmed">${ic('check')} Approve</button><button class="btn bad" data-d="dismissed">${ic('x')} Dismiss</button><button class="btn sec" data-d="investigating">Investigate</button></p><div id="rmsg"></div>`:''}`;
+  drawerOpen(true);$('#dclose').onclick=()=>drawerOpen(false);
+  $$('[data-d]').forEach(b=>b.onclick=async()=>{try{await api(`/incidents/${id}/review`,{method:'POST',json:{decision:b.dataset.d,comment:$('#rc').value}});toast(`Incident ${i.code}: ${b.dataset.d}`,'#3ddc97');
+    if(S.reloadInc&&$('#ilist'))await S.reloadInc();badgeCounts();await openIncident(id)}catch(e){$('#rmsg').innerHTML=`<span class="err">${esc(e.message)}</span>`}})};
+
+/* ---------- missions: videos, upload, zone drawing ---------- */
+function stepper(v){const s=v.status;const st=[['Uploaded',1],['Processing',s==='processing'?2:(s==='done'?1:0)],['Done',s==='done'?1:0]];
+  return `<div class="stepper">${st.map((x,k)=>`<span class="step ${x[1]===2?'run':(x[1]?'on':'')}"><b>${k+1}</b>${x[0]}</span>${k<2?'<hr>':''}`).join('')}</div>`}
+async function renderMission(m){
+  const box=$('#mdetail');if(!box)return;
+  box.innerHTML=`<div class="ch">${ic('target')} ${esc(m.code)} — ${esc(m.name)} <span class="sp"></span><span class="pill">${esc(m.status)}</span></div><div class="mut">${m.incident_count} incident(s) · start ${m.start_lat}, ${m.start_lon} @ ${m.altitude} m</div>
+   ${m.videos.map(v=>`<div class="card" style="margin:12px 0;background:var(--panel2)"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><b>${esc(v.filename)}</b><span class="mut mono" style="font-size:12px">${esc(v.code)}</span><span style="flex:1"></span>
+    ${can('admin','operator')&&v.status!=='processing'?`<button class="btn sec sm" data-p="${v.id}">${ic('play')} ${v.status==='done'?'Re-process':'Process'}</button><button class="btn live sm" data-pl="${v.id}">${ic('radio')} Process live</button>`:''}
+    ${can('admin')&&v.proc_size?`<button class="btn sec sm" data-z="${v.id}">${ic('pen')} Draw zone on frame</button>`:''}</div>
+    ${stepper(v)}<div class="bar"><i style="width:${v.progress||0}%"></i></div>${v.error?`<div class="err">${esc(v.error)}</div>`:''}
+    ${v.meta?.processing?`<div class="mut" style="margin-top:6px">${v.meta.processing.processed_frames} frames · ${v.meta.processing.seconds}s · ${v.meta.processing.effective_fps} FPS · ${v.meta.processing.tracks} tracks · peak ${v.meta.processing.peak_rss_mb} MB</div>`:''}
+    ${v.has_annotated?`<video id="vid${v.id}" controls style="width:100%;margin-top:10px;border-radius:10px;background:#000"></video>`:''}</div>`).join('')}
+   ${can('admin','operator')?`<div class="drop" id="drop"><div style="margin-bottom:8px">${ic('upload')} Drag a video here or choose a file (MP4 / MOV / AVI)</div><input type="file" id="vf" accept=".mp4,.mov,.avi" style="max-width:360px;margin:0 auto"><p><button class="btn" id="vu">${ic('upload')} Upload</button> <a class="mut" href="/demo/demo_aerial.mp4" download>demo clip</a></p><div id="vmsg"></div></div>`:''}`;
+  m.videos.filter(v=>v.has_annotated).forEach(async v=>{try{const el=$('#vid'+v.id);if(el)el.src=await blobUrl(`/videos/${v.id}/stream`)}catch(e){}});
+  const startP=async(id,live)=>{try{S.lfit=false;await api(`/videos/${id}/process${live?'?live=true':''}`,{method:'POST'});if(live){toast('Live processing started — opening Live Ops','#7c6cff');go('live')}else poll()}catch(e){if($('#vmsg'))$('#vmsg').innerHTML=`<span class="err">${esc(e.message)}</span>`;toast(e.message,'#ff4d5e')}};
+  $$('[data-p]').forEach(b=>b.onclick=()=>startP(b.dataset.p,false));
+  $$('[data-pl]').forEach(b=>b.onclick=()=>startP(b.dataset.pl,true));
+  $$('[data-z]').forEach(b=>b.onclick=()=>openZoneDrawer(m.videos.find(v=>v.id===+b.dataset.z)));
+  const drop=$('#drop');if(drop){['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+    drop.addEventListener('drop',e=>{if(e.dataTransfer?.files?.length){$('#vf').files=e.dataTransfer.files;toast('File selected: '+e.dataTransfer.files[0].name)}})}
+  if($('#vu'))$('#vu').onclick=async()=>{const f=$('#vf').files[0];if(!f)return;const fd=new FormData();fd.append('mission_id',m.id);fd.append('file',f);
+    try{$('#vmsg').textContent='Uploading…';await api('/videos/upload',{method:'POST',body:fd});VIEWS.missions()}catch(e){$('#vmsg').innerHTML=`<span class="err">${esc(e.message)}</span>`}};
+  if(m.videos.some(v=>v.status==='processing'))poll();
+}
+function closeZone(){$('#zdraw').classList.remove('on');$('#zdraw').innerHTML=''}
+async function openZoneDrawer(v){
+  const [W,H]=v.proc_size,pts=[];
+  $('#zdraw').classList.add('on');
+  $('#zdraw').innerHTML=`<div class="card"><div class="ch">${ic('pen')} Draw zone on frame — click to add corners <span class="sp"></span><button class="iconbtn" id="zx">${ic('x')}</button></div>
+   <div id="zwrap"><img id="zimg" alt="video frame"><svg id="zsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"></svg></div>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label>Zone name</label><input id="zdn" value="Restricted Zone"></div><div><label>Type</label><select id="zdt"><option>restricted</option><option>inspection</option><option>emergency</option><option>construction</option><option>monitoring</option><option>road</option><option>custom</option></select></div></div>
+   <p><button class="btn sec" id="zu">Undo point</button> <button class="btn sec" id="zc">Clear</button> <button class="btn" id="zs">${ic('check')} Save zone</button> <span id="zdm" class="mut">0 points</span></p></div>`;
+  $('#zx').onclick=closeZone;
+  const svg=$('#zsvg'),draw=()=>{svg.innerHTML=(pts.length>1?`<polygon points="${pts.map(p=>p.join(',')).join(' ')}" fill="rgba(255,77,94,.28)" stroke="#ff4d5e" stroke-width="3"/>`:'')+pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="7" fill="#fff" stroke="#ff4d5e" stroke-width="3"/>`).join('');$('#zdm').textContent=pts.length+' points'};
+  svg.onclick=e=>{const r=svg.getBoundingClientRect(),sx=r.width?W/r.width:1,sy=r.height?H/r.height:1;pts.push([Math.round((e.clientX-r.left)*sx),Math.round((e.clientY-r.top)*sy)]);draw()};
+  $('#zu').onclick=()=>{pts.pop();draw()};$('#zc').onclick=()=>{pts.length=0;draw()};
+  $('#zs').onclick=async()=>{if(pts.length<3){$('#zdm').innerHTML='<span class="err">Need at least 3 points</span>';return}
+    try{await api(`/videos/${v.id}/zone-from-pixels`,{method:'POST',json:{name:$('#zdn').value,zone_type:$('#zdt').value,points:pts}});toast('Zone saved — re-process the video to apply it','#3ddc97');closeZone();VIEWS.missions()}catch(e){$('#zdm').innerHTML=`<span class="err">${esc(e.message)}</span>`}};
+  try{$('#zimg').src=await blobUrl(`/videos/${v.id}/preview`)}catch(e){$('#zdm').textContent='Could not load frame: '+e.message}
+}
+
+/* ---------- real-time connection ---------- */
+function setConn(c){S.conn=c;const el=$('#live');if(!el)return;el.className='pill '+c;$('#livet').textContent={on:'live',wait:'connecting',off:'offline'}[c]}
+function connectWS(){
+  if(!S.token||typeof WebSocket==='undefined')return;setConn('wait');
+  try{const ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws/events');S.ws=ws;
+    ws.onopen=()=>ws.send(JSON.stringify({token:S.token}));ws.onmessage=e=>onLive(JSON.parse(e.data));
+    ws.onclose=()=>{setConn('off');if(S.token){S.retry=Math.min(S.retry+1,6);setTimeout(connectWS,1000*S.retry)}}}catch(e){}
+}
+const busy=()=>$('#zdraw').classList.contains('on')||$('#drawer').classList.contains('on');
+function onLive(m){
+  switch(m.type){
+  case 'hello':S.retry=0;setConn('on');pushFeed('sys','Live connection established');break;
+  case 'frame':S.live=m;scheduleLive();break;
+  case 'progress':$$('#mdetail .bar>i').forEach(i=>i.style.width=m.progress+'%');break;
+  case 'incident':{const col=SEV[m.severity];toast(`New incident ${m.code}: ${m.object} — ${m.severity} (${m.risk_score}/100)`,col);pushFeed('inc',`${m.code}: ${m.object} — ${m.severity} (${m.risk_score}/100)`,m.severity);
+    S.unread++;paintBell();if(m.severity==='CRITICAL'&&S.sound){beep(880,.12);setTimeout(()=>beep(660,.2),160)}badgeCounts();
+    if(S.tab==='incidents'&&S.reloadInc)S.reloadInc();
+    if(S.map&&window.L&&m.lat!=null){L.circleMarker([m.lat,m.lon],{radius:11,color:'#fff',weight:2,fillColor:col,fillOpacity:.95}).addTo(S.map)}
+    break}
+  case 'video_done':toast(`Processing finished — ${m.incidents} incident(s)`,'#3ddc97');pushFeed('ok',`Processing finished — ${m.incidents} incident(s)`);refreshMissions();badgeCounts();
+    if(!busy()&&['missions','overview','incidents','analytics'].includes(S.tab))go(S.tab);break;
+  case 'video_failed':toast('Processing failed: '+m.error,'#ff4d5e');pushFeed('inc','Processing failed: '+m.error,'CRITICAL');refreshMissions();break}
+}
+function poll(){clearInterval(S.timer);S.timer=setInterval(async()=>{if(S.tab!=='missions'){clearInterval(S.timer);return}
+  const m=await api('/missions/'+S.mission);if(!m.videos.some(v=>v.status==='processing')){clearInterval(S.timer)}if(!busy())renderMission(m)},1500)}
+if(S.token&&S.user)start();
+</script>
+</body>
+</html>
