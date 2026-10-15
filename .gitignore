@@ -1,43 +1,8 @@
-﻿# Secrets and environment files
-.env
-.env.*
-!.env.example
-*.pem
-*.key
-
-# Python
 __pycache__/
-*.py[cod]
+*.pyc
 .pytest_cache/
-.venv/
-venv/
-*.egg-info/
-
-# Node.js / frontend
+.env
 node_modules/
-dist/
-build/
-.next/
-
-# Generated storage and logs
 storage/*
 !storage/.gitkeep
-logs/
-*.log
-
-# Model weights and large artifacts
-*.pt
-*.pth
-*.onnx
-*.engine
-*.weights
-
-# Dataset artifacts
-# Uncomment if datasets should remain local:
-# datasets/
-
-# IDE and OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+models/*.pt

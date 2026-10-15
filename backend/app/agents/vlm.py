@@ -67,9 +67,37 @@ class AnthropicVLM(VLMProvider):
         return out
 
 
-def get_provider(name: str | None = None) -> VLMProvider:
+class GroqVLM(VLMProvider):
+    """Evidence-frame analysis through Groq's OpenAI-compatible vision endpoint (model chain from GROQ_VISION_MODELS)."""
+    name = "groq"
+
+    def __init__(self):
+        self.model = settings.groq_vision_models[0] if settings.groq_vision_models else ""
+
+    def analyze(self, image_path, context):
+        from ..ai import llm
+        b64 = base64.b64encode(Path(image_path).read_bytes()).decode()
+        out = llm.vision(b64, PROMPT.format(context=json.dumps(context)))
+        self.model = out["model"]
+        text = out["message"].get("content") or ""
+        m = re.search(r"\{.*\}", text, re.S)
+        res = json.loads(m.group(0)) if m else {"summary": text[:300], "concern_level": "low", "rationale": ""}
+        if res.get("concern_level") not in ("none", "low", "high"):
+            res["concern_level"] = "low"
+        return {k: res.get(k, "") for k in ("summary", "concern_level", "rationale")}
+
+
+def effective_name(name: str | None = None) -> str:
     name = name or settings.vlm_provider
-    return AnthropicVLM() if name == "anthropic" else StubVLM()
+    if name == "auto":
+        from ..ai import llm
+        return "groq" if llm.configured() else "stub"
+    return name
+
+
+def get_provider(name: str | None = None) -> VLMProvider:
+    n = effective_name(name)
+    return GroqVLM() if n == "groq" else (AnthropicVLM() if n == "anthropic" else StubVLM())
 
 
 def analyze_with_fallback(image_path: str, context: dict, provider: VLMProvider | None = None) -> dict:

@@ -25,6 +25,7 @@ from ..risk.engine import INFO_EVENTS, assess
 from ..tracking.detector import get_detector
 from ..tracking.tracker import ByteLikeTracker
 from .events import detect_events
+from . import notify
 from .hub import hub
 from .temporal import track_stats
 from .types import EventDef, Point, TrackData, ZoneDef
@@ -168,11 +169,6 @@ def process_video(video_id: int, session_factory=SessionLocal, live: bool = Fals
         mission = db.get(Mission, video.mission_id)
         video.status, video.progress, video.error = "processing", 0.0, None
         mission.status = "processing"
-        old_incidents = [i.id for i in db.query(Incident).filter(Incident.video_id == video.id)]
-        if old_incidents:
-            db.query(Review).filter(Review.incident_id.in_(old_incidents)).delete(synchronize_session=False)
-        for m in (Event, Incident, Track, Detection):
-            db.query(m).filter(m.video_id == video.id).delete(synchronize_session=False)
         db.commit()
 
         cap = cv2.VideoCapture(video.path)
@@ -249,6 +245,14 @@ def process_video(video_id: int, session_factory=SessionLocal, live: bool = Fals
             idx += 1
         cap.release()
         writer.release()
+
+        # ---- atomic swap: old results stay visible (Map, Incident Center) until the new ones are ready.
+        #      Everything below is one transaction; it only commits at the very end.
+        old_incidents = [i.id for i in db.query(Incident).filter(Incident.video_id == video.id)]
+        if old_incidents:
+            db.query(Review).filter(Review.incident_id.in_(old_incidents)).delete(synchronize_session=False)
+        for m in (Event, Incident, Track, Detection):
+            db.query(m).filter(m.video_id == video.id).delete(synchronize_session=False)
 
         # ---- tracks / events
         tracks = {tid: td for tid, td in track_data.items() if len(td.points) >= 3}
@@ -332,7 +336,8 @@ def process_video(video_id: int, session_factory=SessionLocal, live: bool = Fals
             n_inc += 1
             inc_msgs.append({"type": "incident", "code": inc.code, "severity": inc.severity, "risk_score": inc.risk_score,
                          "object": f"{inc.object_class} #{inc.track_id}", "video_id": video.id,
-                         "id": inc.id, "lat": inc.lat, "lon": inc.lon, "type_": inc.primary_type})
+                         "id": inc.id, "lat": inc.lat, "lon": inc.lon, "type_": inc.primary_type,
+                         "reasons": a["reasons"], "recommendation": dec["recommendation"]})
             for e in evs:
                 db.add(Event(video_id=video.id, mission_id=mission.id, incident_id=inc.id, event_type=e.event_type,
                              track_id=e.track_id, related_track_id=e.related_track_id, zone_id=e.zone_id,
@@ -360,6 +365,7 @@ def process_video(video_id: int, session_factory=SessionLocal, live: bool = Fals
         db.commit()
         for msg in inc_msgs:
             hub.publish(msg)
+            notify.send_alert(msg)               # Telegram / webhook (best effort, after commit)
         hub.publish({"type": "video_done", "video_id": video.id, "incidents": n_inc})
         return video.meta["processing"]
     except Exception as e:  # surface failures to the UI instead of dying silently

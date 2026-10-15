@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import threading
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -10,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from .api.routes import router
 from .core.config import ROOT, settings
 from .core.security import decode_token, has_permission, hash_password
+from .services.demo import ensure_demo_user, seed_demo
 from .services.hub import hub
 from .models.db import ModelRecord, SessionLocal, User, Video, init_db
 
@@ -54,6 +56,9 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed(db)
+        if settings.demo_mode:
+            ensure_demo_user(db)
+            threading.Thread(target=seed_demo, daemon=True, name="demo-seed").start()   # no-op when already baked in
     finally:
         db.close()
     yield

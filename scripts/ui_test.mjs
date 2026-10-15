@@ -11,7 +11,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const html = fs.readFileSync(path.join(ROOT, "frontend", "index.html"), "utf8");
 let failures = 0, passed = 0;
 const errors = [];
-process.on("unhandledRejection", (e) => errors.push("unhandledRejection: " + (e && e.message)));
+process.on("unhandledRejection", (e) => errors.push("unhandledRejection: " + (e && (e.stack || e.message))));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function check(name, cond, extra = "") { if (cond) { passed++; console.log("  ok  ", name); } else { failures++; console.log("  FAIL", name, extra); } }
 
@@ -70,6 +70,19 @@ async function api(role, p, opt = {}) {
   return fetch(BASE + "/api/v1" + p, { ...opt, headers: { ...(opt.headers || {}), Authorization: "Bearer " + lr.access_token } });
 }
 
+async function openDemo() {
+  const vc = new VirtualConsole(); vc.on("jsdomError", (e) => { if (!/Not implemented/.test(e.message)) errors.push("jsdomError: " + e.message); });
+  const dom = new JSDOM(html, { url: BASE + "/", runScripts: "dangerously", pretendToBeVisual: true, virtualConsole: vc,
+    beforeParse(w) { w.fetch = (u, o) => fetch(new URL(u, BASE), o); w.URL.createObjectURL = () => "blob:stub"; w.L = leafletStub({ popups: [], kinds: new Set(), markers: 0, polylines: 0 }); } });
+  const $ = (q) => dom.window.document.querySelector(q);
+  const t0 = Date.now(); while (Date.now() - t0 < 8000 && $("#demobox").classList.contains("hide")) await sleep(80);
+  check("login page shows 'Try the live demo' when DEMO_MODE=1", !$("#demobox").classList.contains("hide"));
+  $("#demo").dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+  const t1 = Date.now(); while (Date.now() - t1 < 8000 && $("#app").classList.contains("hide")) await sleep(80);
+  await sleep(1500);
+  return { $ };
+}
+
 console.log("== ADMIN session");
 const A = await openApp("admin");
 check("sidebar shows user + role", A.$("#who").textContent.includes("admin") && A.$("#role").textContent.includes("admin"));
@@ -78,11 +91,18 @@ check("live pill is green: WebSocket connected", A.$("#live").classList.contains
 for (const [t, r] of [["overview", "Tracked objects"], ["live", "Objects in frame"], ["missions", "New mission"], ["incidents", "Incident Center"], ["analytics", "Object counts"], ["assistant", "Investigation Assistant"], ["reports", "Generate report"], ["admin", "Audit log"]]) await A.tab(t, r);
 check("KPI cards + live panel + event feed present on Command Center", await (async () => { await A.tab("overview", "Tracked objects"); return A.$$(".kpi").length === 4 && A.$(".livebox") && A.$("#feed"); })());
 
+console.log("== rapid navigation: the last click must win (no stale overwrite)");
+A.click(A.$('#nav button[data-t="analytics"]')); A.click(A.$('#nav button[data-t="incidents"]')); A.click(A.$('#nav button[data-t="live"]'));
+await A.waitFor(() => A.$("#ptitle").textContent === "Live Ops" && A.$("#view").textContent.includes("Objects in frame"), "last clicked tab renders");
+await sleep(2500);
+check("slower earlier tabs did not overwrite the final view", A.$("#ptitle").textContent === "Live Ops" && A.$("#view").textContent.includes("Objects in frame") && !A.$("#view").textContent.includes("Object counts"));
+
 console.log("== create mission through the UI");
 await A.tab("missions", "New mission");
+const nCards = A.$$(".mcard").length;
 A.click(A.$("#mk"));
-await A.waitFor(() => A.$("#mdetail")?.textContent.includes("MISSION-"), "mission created");
-const mid = +A.$("#msel").value;
+await A.waitFor(() => A.$$(".mcard").length === nCards + 1 && A.$(".mcard.on") && A.$("#mdetail")?.textContent.includes("MISSION-"), "new mission card selected");
+const mid = +A.$(".mcard.on").dataset.m;
 check("mission appears in header selector and mission list", mid > 0 && A.$$(".mcard").length >= 1);
 
 console.log("== upload (API) then draw a zone on the frame through the UI");
@@ -115,6 +135,7 @@ check("live toast and event feed received WebSocket events", A.$$(".toast").leng
 
 console.log("== REAL-TIME: 'Process live' streams frames to the dashboard");
 await A.waitFor(() => A.$("[data-pl]"), "Process live button");
+const finishedBefore = (A.window.document.body.textContent.match(/Processing finished/g) || []).length;
 A.click(A.$("[data-pl]"));
 await A.waitFor(() => A.$("#ptitle").textContent === "Live Ops", "navigated to Live Ops");
 await A.waitFor(() => A.$(".livebox.has"), "first live frame", 15000);
@@ -126,7 +147,7 @@ check("HUD shows time, GPS and object count", /t=\d/.test(A.$(".lt").textContent
 check("objects table lists tracked cars/people with lat/lon", A.$$("#objs tr").length >= 2 && /car|person/.test(A.$("#objs").textContent));
 check("progress bar advances", parseFloat(A.$(".lpbar").style.width) > 5);
 check("geo-map markers + trails created from live telemetry", A.calls.markers >= 3 && A.calls.polylines >= 3, `markers=${A.calls.markers} lines=${A.calls.polylines}`);
-await A.waitFor(() => /Processing finished/.test(A.$("#feed").textContent), "live run finished event", 40000);
+await A.waitFor(() => ((A.$("#feed").textContent.match(/Processing finished/g) || []).length) > (finishedBefore > 0 ? 0 : 0) && A.$("#feed").textContent.split("Processing finished").length - 1 >= 2, "live run finished event (2nd 'Processing finished')", 45000);
 check("feed shows incident events + 'Processing finished'", /EVT-\d+/.test(A.$("#feed").textContent) && /Processing finished/.test(A.$("#feed").textContent));
 await A.waitFor(() => A.$("#icnt") && !A.$("#icnt").classList.contains("hide"), "nav incident badge", 8000);
 check("sidebar shows pending HIGH/CRITICAL incident count badge", +A.$("#icnt").textContent >= 1);
@@ -143,7 +164,7 @@ await A.waitFor(() => A.$$("#ilist .icard").length >= 2, "filter cleared");
 A.click(A.$("#ilist .icard"));
 await A.waitFor(() => A.$("#drawer").classList.contains("on") && A.$("#idet").textContent.includes("Why this score"), "incident drawer");
 const det = A.$("#idet").textContent;
-check("drawer: risk gauge, reasons, evidence timeline, recommendation", A.$("#idet .gauge") && /intrusion/i.test(det) && /Drawn UI Zone/.test(det) && /human investigation/i.test(det) && A.$$("#idet .tl div").length >= 2);
+check("drawer: risk gauge, reasons, evidence timeline, recommendation", A.$("#idet .gauge") && /intrusion/i.test(det) && /(Drawn UI Zone|Restricted Zone A)/.test(det) && /human investigation/i.test(det) && A.$$("#idet .tl div").length >= 2);
 check("drawer states 'no autonomous physical action'", /no autonomous physical action/.test(det));
 A.click(A.$('[data-d="dismissed"]'));                      // no comment -> must be rejected by the server
 await A.waitFor(() => /comment is required/i.test(A.$("#rmsg")?.textContent || ""), "dismiss requires comment");
@@ -159,7 +180,8 @@ check("list refreshed with confirmed status", true);
 
 console.log("== map view data flow");
 await A.tab("map", "Mission map");
-await A.waitFor(() => A.calls.kinds.size >= 3, "geojson layers", 5000).catch(() => {});
+await A.waitFor(() => A.calls.kinds.size >= 3, "geojson layers", 8000).catch(() => {});
+console.log("   [debug] map mission=", A.$("#msel").value, "kinds=", [...A.calls.kinds].join(","), "mlist=", A.$$("#mlist .icard").length);
 check("map received zone + trajectory + incident features", ["zone", "trajectory", "incident"].every((k) => A.calls.kinds.has(k)), [...A.calls.kinds].join());
 check("incident popup + side list built", A.calls.popups.some((p) => /EVT-/.test(p)) && A.$$("#mlist .icard").length >= 1);
 
@@ -167,10 +189,40 @@ console.log("== assistant");
 await A.tab("assistant", "Investigation Assistant");
 A.$("#q").value = "Show all high-risk events today."; A.click(A.$("#ask"));
 await A.waitFor(() => /CRITICAL/.test(A.$("#chat").textContent), "assistant reply");
-check("reply grounded in DB with tool trace", /tools: search_events/.test(A.$("#chat").textContent));
+check("reply grounded in DB with tool trace", /tools: search_(events|incidents)/.test(A.$("#chat").textContent));
 A.$("#q").value = "<img src=x onerror=alert(1)> why vehicle #99?"; A.click(A.$("#ask"));
 await A.waitFor(() => A.$$("#chat .msg").length >= 5 && !A.$("#chat .typing"), "second reply");
 check("assistant output is text-only (no HTML injection)", A.$("#chat img") === null);
+
+console.log("== AI features (LLM path when the server has Groq configured, rules fallback otherwise)");
+const health = await (await fetch(BASE + "/api/v1/system/health")).json();
+const llmOn = !!health.llm_enabled;
+await A.tab("assistant", "Investigation Assistant");
+await A.waitFor(() => /Groq LLM|Rules engine/.test(A.$("#aieng").textContent), "engine pill");
+check("assistant shows which engine is active", llmOn ? /Groq LLM/.test(A.$("#aieng").textContent) : /Rules engine/.test(A.$("#aieng").textContent));
+const before = A.$$("#chat .msg").length;
+A.$("#q").value = "Sabse high risk incident kaun sa hai?"; A.click(A.$("#ask"));
+await A.waitFor(() => A.$$("#chat .msg").length >= before + 2 && !A.$("#chat .typing"), "hinglish reply");
+const last = A.$$("#chat .msg .b").pop().textContent;
+check("answer cites a real incident code and names the engine", /EVT-\d+/.test(last) && (llmOn ? /AI · / : /rules engine/).test(last), last.slice(0, 160));
+if (llmOn) check("LLM answered in Hinglish", /hai/i.test(last));
+await A.tab("overview", "Tracked objects");
+check("AI engines card present", /AI engines/.test(A.$("#view").textContent) && /Assistant:/.test(A.$("#view").textContent));
+A.$("#blang").value = "Hinglish"; A.click(A.$("#bgo"));
+await A.waitFor(() => /Shift (update|briefing)/.test(A.$("#bout").textContent), "briefing");
+check("AI shift briefing generated with engine label", /EVT-\d+/.test(A.$("#bout").textContent) && (llmOn ? /AI · / : /rules template/).test(A.$("#bout").textContent));
+await A.tab("incidents", "Incident Center");
+await A.waitFor(() => A.$(".icard"), "cards");
+A.click(A.$(".icard"));
+await A.waitFor(() => A.$("#xai"), "Ask AI button in drawer");
+A.$("#xlang").value = "Hinglish"; A.click(A.$("#xai"));
+await A.waitFor(() => /EVT-\d+/.test(A.$("#xout").textContent), "explain answer");
+check("'Explain this incident' returns a grounded explanation", /EVT-\d+/.test(A.$("#xout").textContent) && (llmOn ? /AI · / : /rules engine/).test(A.$("#xout").textContent));
+A.click(A.$("#dclose")); await sleep(300);
+if (health.demo_mode) {
+  const D = await openDemo();
+  check("demo login button logs in a read-only account", D.$("#who").textContent.includes("demo") && !D.$("#vu") && !D.$("[data-p]") && !D.$("#mk"));
+}
 
 console.log("== reports, analytics, admin");
 await A.tab("reports", "Generate report");

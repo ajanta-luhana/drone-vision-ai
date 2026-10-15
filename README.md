@@ -18,11 +18,34 @@ Expected result on the demo clip: Vehicle stops inside Restricted Zone A with a 
 recommendation "Escalate ... human investigation".
 
 ## Screenshots
-| Command Center | Live Ops (real-time AI view) |
+
+<p align="center">
+  <img src="docs/screenshots/live-ops.png" alt="Live Ops: AI detections streamed in real time over WebSocket, with objects table and moving geo-map" width="900">
+  <br><sub><b>Live Ops</b> - annotated frames, detections and GPS streamed in real time while the pipeline runs</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/command-center.png" alt="Command Center with KPIs, live view, event feed and charts"><br><sub><b>Command Center</b> - KPIs, live view, event feed, risk charts</sub></td>
+    <td width="50%"><img src="docs/screenshots/incident-drawer.png" alt="Incident drawer with risk gauge, evidence frame, reasons and timeline"><br><sub><b>Incident drawer</b> - risk gauge, evidence frame, reasons, human review</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/zone-drawing.png" alt="Drawing a restricted zone directly on the video frame"><br><sub><b>Draw zones on the video frame</b> - converted to GeoJSON automatically</sub></td>
+    <td width="50%"><img src="docs/screenshots/light-theme.png" alt="Light theme"><br><sub><b>Light theme</b> - dark/light toggle</sub></td>
+  </tr>
+</table>
+
+## AI features (Groq, free tier)
+| | |
 |---|---|
-| ![](docs/screenshots/command-center.png) | ![](docs/screenshots/live-ops.png) |
-| **Incident drawer** | **Draw zone on the video frame** |
-| ![](docs/screenshots/incident-drawer.png) | ![](docs/screenshots/zone-drawing.png) |
+| ![](docs/screenshots/ai-assistant.png) | ![](docs/screenshots/ai-briefing.png) |
+| **Assistant**: tool-calling over your data, answers in English / Hindi / Hinglish, with engine + tools shown | **Shift briefing + AI engines** |
+
+* **LLM assistant** (Groq, OpenAI-compatible tool calling) - grounded: incident codes / object ids in an answer must exist in the tool results, else the answer is rejected and the rules engine answers.
+* **Shift briefing**, **Explain this incident**, **vision analysis of evidence frames** (Groq vision model).
+* **Always works without AI**: no key / outage / quota -> automatic fallback to the deterministic rules engine.
+* **Alerts**: Telegram / Slack / Discord for HIGH & CRITICAL incidents. **Demo mode** with a read-only login for public links.
+* Setup, free hosting and the `.com` question: see **[DEPLOY.md](DEPLOY.md)**.
 
 ## What's in the dashboard
 Command Center (animated KPIs, live AI view, live event feed, risk/event charts, system health), **Live Ops** (annotated frames, detections and GPS
@@ -45,8 +68,8 @@ The built-in `blob` detector only works on the synthetic clip.
 
 ## Test & evaluate
 ```bash
-cd backend && python -m pytest tests -q     # 69 tests, ~90 s
-npm i jsdom && BASE=http://127.0.0.1:8000 SEED_PASSWORD=... node scripts/ui_test.mjs   # 64 UI checks (incl. real-time live view) against a running server
+cd backend && python -m pytest tests -q     # 88 tests, ~2 min
+npm i jsdom && BASE=http://127.0.0.1:8000 SEED_PASSWORD=... node scripts/ui_test.mjs   # 75-76 UI checks (incl. real-time live view and AI features) against a running server
 python scripts/evaluate.py                  # precision/recall/ID switches on the demo clip
 ```
 See `docs/PROJECT_REQUIREMENTS.md` (status per requirement) and `docs/limitations.md` (what is still open).

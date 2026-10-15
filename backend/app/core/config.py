@@ -40,7 +40,22 @@ class Settings:
     loiter_radius_m: float = field(default_factory=lambda: _f("LOITER_RADIUS_M", "6"))
     loiter_min_s: float = field(default_factory=lambda: _f("LOITER_MIN_S", "8"))
     # VLM
-    vlm_provider: str = field(default_factory=lambda: os.getenv("VLM_PROVIDER", "stub"))  # stub | anthropic
+    vlm_provider: str = field(default_factory=lambda: os.getenv("VLM_PROVIDER", "auto"))  # auto | stub | groq | anthropic
+    # --- Groq (OpenAI-compatible). Model IDs are env-driven because Groq retires models often; comma list = fallback chain.
+    groq_api_key: str = field(default_factory=lambda: os.getenv("GROQ_API_KEY", ""))
+    groq_base_url: str = field(default_factory=lambda: os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/"))
+    groq_models: tuple = field(default_factory=lambda: tuple(m.strip() for m in os.getenv("GROQ_MODELS", "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",") if m.strip()))
+    groq_vision_models: tuple = field(default_factory=lambda: tuple(m.strip() for m in os.getenv("GROQ_VISION_MODELS", "qwen/qwen3.8-27b").split(",") if m.strip()))
+    llm_timeout_s: float = field(default_factory=lambda: _f("LLM_TIMEOUT_S", "25"))
+    llm_user_per_hour: int = field(default_factory=lambda: int(os.getenv("LLM_USER_PER_HOUR", "30")))   # protects the free quota
+    llm_daily_cap: int = field(default_factory=lambda: int(os.getenv("LLM_DAILY_CAP", "400")))
+    # --- alerts / demo
+    telegram_bot_token: str = field(default_factory=lambda: os.getenv("TELEGRAM_BOT_TOKEN", ""))
+    telegram_chat_id: str = field(default_factory=lambda: os.getenv("TELEGRAM_CHAT_ID", ""))
+    alert_webhook_url: str = field(default_factory=lambda: os.getenv("ALERT_WEBHOOK_URL", ""))
+    alert_min_severity: str = field(default_factory=lambda: os.getenv("ALERT_MIN_SEVERITY", "HIGH"))
+    public_url: str = field(default_factory=lambda: os.getenv("PUBLIC_URL", "").rstrip("/"))
+    demo_mode: bool = field(default_factory=lambda: os.getenv("DEMO_MODE", "0") == "1")
     vlm_model: str = field(default_factory=lambda: os.getenv("VLM_MODEL", "claude-sonnet-4-6"))
     anthropic_api_key: str = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY", ""))
     # Risk thresholds: upper bound of each band (configurable)

@@ -129,6 +129,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 9px;
     <label>Username</label><input id="u" autocomplete="username" placeholder="admin · operator · analyst · viewer">
     <label>Password</label><input id="p" type="password" autocomplete="current-password">
     <p><button class="btn" id="go" style="width:100%;justify-content:center">Sign in</button></p><div id="lerr" class="err"></div>
+    <div id="demobox" class="hide" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)"><button class="btn live" id="demo" style="width:100%;justify-content:center">Try the live demo (read-only)</button><div class="mut" style="font-size:12px;margin-top:6px">Sample mission with a pre-processed incident. The demo account cannot upload, process or change settings.</div></div>
     <p class="mut" style="font-size:12px;margin:8px 0 0">Password = the <code>SEED_PASSWORD</code> from your <code>.env</code>.</p></div></div>
 </div>
 
@@ -213,10 +214,15 @@ function start(){
 async function refreshMissions(){S.missions=await api('/missions');if(!S.mission||!S.missions.find(m=>m.id===S.mission))S.mission=S.missions[0]?.id||null;
   $('#msel').innerHTML=S.missions.length?S.missions.map(m=>`<option value="${m.id}" ${m.id===S.mission?'selected':''}>${esc(m.code)} — ${esc(m.name)} [${esc(m.status)}]</option>`).join(''):'<option value="">No missions yet</option>'}
 async function badgeCounts(){try{const l=await api('/incidents?status=pending');const n=l.filter(i=>['HIGH','CRITICAL'].includes(i.severity)).length;const c=$('#icnt');if(c){c.textContent=n;c.classList.toggle('hide',!n)}}catch(e){}}
-async function go(tab){S.tab=tab;clearInterval(S.timer);killMaps();
+let navChain=Promise.resolve();
+/* Navigation is serialised: views render one at a time and a view that was superseded by a later click is skipped,
+   so a slow earlier tab can never overwrite the one the user is looking at. */
+function go(tab){const id=S.navId=(S.navId||0)+1;S.tab=tab;
   $$('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));$('#ptitle').textContent=(TABS.find(t=>t[0]===tab)||[])[1]||'';
-  $('#view').innerHTML='<div class="grid k4">'+'<div class="card" style="height:92px;opacity:.5"></div>'.repeat(4)+'</div>';
-  try{await VIEWS[tab]()}catch(e){$('#view').innerHTML=`<div class="card err">${esc(e.message)}</div>`}}
+  navChain=navChain.then(async()=>{if(id!==S.navId)return;clearInterval(S.timer);killMaps();
+    $('#view').innerHTML='<div class="grid k4">'+'<div class="card" style="height:92px;opacity:.5"></div>'.repeat(4)+'</div>';
+    try{await VIEWS[tab]()}catch(e){if(id===S.navId)$('#view').innerHTML=`<div class="card err">${esc(e.message)}</div>`}});
+  return navChain}
 function killMaps(){for(const k of ['map','lmap'])if(S[k]){try{S[k].remove()}catch(e){}S[k]=null}S.markers={};S.trails={}}
 function toast(msg,col){const d=document.createElement('div');d.className='toast';if(col)d.style.borderLeftColor=col;d.textContent=msg;$('#toasts').appendChild(d);setTimeout(()=>d.remove(),6000)}
 function beep(f=880,d=.15){try{const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.frequency.value=f;o.connect(g);g.connect(c.destination);g.gain.setValueAtTime(.12,c.currentTime);o.start();o.stop(c.currentTime+d)}catch(e){}}
@@ -264,7 +270,7 @@ function paintBell(){const b=$('#bell');b.querySelector('.bd')?.remove();if(S.un
 /* ---------- VIEWS ---------- */
 const VIEWS={
 async overview(){
-  const [o,m,inc]=await Promise.all([api('/analytics/overview'),can('admin','operator','analyst')?api('/system/metrics'):Promise.resolve(null),api('/incidents')]);
+  const [o,m,inc,ai]=await Promise.all([api('/analytics/overview'),can('admin','operator','analyst')?api('/system/metrics'):Promise.resolve(null),api('/incidents'),can('admin','operator','analyst')?api('/system/ai'):Promise.resolve(null)]);
   if(!S.feedSeed){S.feedSeed=1;inc.slice(0,5).reverse().forEach(i=>S.feed.unshift({t:i.created_at.slice(11,19),kind:'inc',sev:i.severity,text:`${i.code}: ${i.object_class} #${i.track_id} — ${i.severity} (${i.risk_score}/100)`}))}
   $('#view').innerHTML=`<div class="grid k4">${kpi('target',o.active_missions,'Active missions ('+o.total_missions+' total)','vio')}${kpi('car',o.total_objects,'Tracked objects')}${kpi('alert',o.active_incidents,'Active incidents','grn')}${kpi('shield',o.high_risk_events,'High-risk events','red')}</div>
   <div class="grid g21"><div class="card"><div class="ch">${ic('radio')} Live AI view</div>${liveBox()}</div>
@@ -273,8 +279,13 @@ async overview(){
    <div class="card"><div class="ch">System health</div>${m?`<div class="hbar"><b>Memory (MB)</b><div class="bar"><i style="width:${Math.min(100,m.memory_rss_mb/20)}%"></i></div><span>${m.memory_rss_mb}</span></div><div class="hbar"><b>Processing FPS</b><div class="bar"><i style="width:${Math.min(100,(m.avg_processing_fps||0)*2)}%"></i></div><span>${m.avg_processing_fps??'–'}</span></div>
    <div class="hbar"><b>Videos processed</b><div class="bar"><i style="width:${Math.min(100,m.videos_processed*10)}%"></i></div><span>${m.videos_processed}</span></div><div class="hbar"><b>Failed jobs</b><div class="bar"><i style="width:${Math.min(100,m.failed_jobs*20)}%;background:var(--crit)"></i></div><span>${m.failed_jobs}</span></div>
    <div style="margin-top:8px"><span class="pill"><span class="dot" style="background:${m.queue_busy?'var(--med)':'var(--low)'}"></span>worker ${m.queue_busy?'busy':'idle'}</span></div>`:'<div class="empty">Metrics are for operators, analysts and admins.</div>'}</div></div>
+  <div class="grid g21"><div class="card"><div class="ch">${ic('chat')} AI shift briefing <span class="sp"></span><select id="blang" style="width:auto"><option>English</option><option>Hinglish</option><option>Hindi</option></select> <button class="btn live sm" id="bgo">Generate</button></div>
+   <div id="bout" class="mut">Press <b>Generate</b> for a short, grounded summary of the current incidents (uses the Groq LLM when configured, otherwise a built-in template).</div></div>
+   <div class="card"><div class="ch">AI engines</div>${ai?`<div style="display:flex;flex-direction:column;gap:7px"><span class="pill"><span class="dot" style="background:${ai.llm.configured?'var(--low)':'var(--mut)'}"></span>Assistant: ${esc(ai.assistant_engine)}</span><span class="pill">Vision: ${esc(ai.vlm_provider)}</span><span class="pill"><span class="dot" style="background:${(ai.alerts.telegram||ai.alerts.webhook)?'var(--low)':'var(--mut)'}"></span>Alerts: ${[ai.alerts.telegram&&'Telegram',ai.alerts.webhook&&'webhook'].filter(Boolean).join(' + ')||'off'}</span>${ai.llm.configured?`<span class="mut" style="font-size:12px">${esc(ai.llm.models.join(' → '))}<br>calls ${ai.llm.stats.calls} · ok ${ai.llm.stats.ok} · fallbacks ${ai.llm.stats.model_fallbacks}${ai.llm.stats.last_error?`<br><span class="err">last error: ${esc(ai.llm.stats.last_error)}</span>`:''}</span>`:'<span class="mut" style="font-size:12px">Set GROQ_API_KEY to enable the LLM assistant, briefings and vision analysis.</span>'}</div>`:'<div class="empty">Visible to operators, analysts and admins.</div>'}</div></div>
   <div class="card"><div class="ch">${ic('alert')} Top incidents</div>${inc.slice(0,5).map(incCard).join('')||'<div class="empty">No incidents yet. Create a mission, upload a video and process it.</div>'}</div>`;
   runCounts();paintFeed();bindInc();paintLive();
+  $('#bgo').onclick=async()=>{const b=$('#bgo'),out=$('#bout');b.disabled=true;out.textContent='Generating…';
+    try{const r=await api('/ai/briefing',{method:'POST',json:{language:$('#blang').value}});out.className='';out.innerHTML=`<div>${esc(r.briefing)}</div><div class="mut" style="font-size:12px;margin-top:8px">${r.engine==='llm'?'AI · '+esc(r.model):'rules template'}${r.note?' · '+esc(r.note):''}</div>`}catch(e){out.innerHTML=`<span class="err">${esc(e.message)}</span>`}b.disabled=false};
 },
 async live(){
   await refreshMissions();const mi=S.missions.find(m=>m.id===S.mission),vids=mi?mi.videos:[];
@@ -340,14 +351,16 @@ async analytics(){
 async assistant(){
   if(!can('admin','operator','analyst')){$('#view').innerHTML='<div class="card empty">The assistant is available to operators, analysts and admins.</div>';return}
   const ex=['Show all high-risk events today.','Which vehicles entered restricted zones?','Why was vehicle #1 classified as high risk?','How long did vehicle #1 remain stationary?','What is the procedure for a vehicle entering Restricted Zone A?',"Generate a report for today's incidents."];
-  $('#view').innerHTML=`<div class="card"><div class="ch">${ic('chat')} AI Investigation Assistant <span class="sp"></span><span class="mut" style="text-transform:none;letter-spacing:0">grounded: answers come only from database + policy lookups</span></div><div class="chat" id="chat"></div>
+  $('#view').innerHTML=`<div class="card"><div class="ch">${ic('chat')} AI Investigation Assistant <span class="sp"></span><span class="pill" id="aieng">checking engine…</span></div><div class="chat" id="chat"></div>
    <div style="margin-top:10px">${ex.map(e=>`<button class="chip">${esc(e)}</button>`).join('')}</div><div style="display:flex;gap:10px;margin-top:10px"><input id="q" placeholder="Ask about incidents, objects, zones, policies…"><button class="btn" id="ask">Ask</button></div></div>`;
   const add=(c,t,x='')=>{const d=document.createElement('div');d.className='msg '+c;const av=document.createElement('div');av.className='av';av.textContent=c==='me'?S.user.username[0].toUpperCase():'AI';const b=document.createElement('div');b.className='b';b.textContent=t;
     if(x){const s=document.createElement('div');s.className='tools';s.textContent=x;b.appendChild(s)}d.append(av,b);$('#chat').appendChild(d);$('#chat').scrollTop=1e9;return d};
   const send=async()=>{const q=$('#q').value.trim();if(!q)return;$('#q').value='';add('me',q);const ty=add('bot','');ty.querySelector('.b').innerHTML='<span class="typing"><i></i><i></i><i></i></span>';
-    try{const r=await api('/assistant/query',{method:'POST',json:{question:q}});ty.remove();add('bot',r.answer,(r.tool_calls.length?'tools: '+r.tool_calls.map(c=>c.tool).join(', '):'no tool used')+(r.sources.length?' · sources: '+r.sources.map(s=>s.source).join(', '):''))}catch(e){ty.remove();add('bot','Error: '+e.message)}};
+    try{const r=await api('/assistant/query',{method:'POST',json:{question:q}});ty.remove();add('bot',r.answer,(r.engine==='llm'?'AI · '+r.model:'rules engine')+' · '+(r.tool_calls.length?'tools: '+r.tool_calls.map(c=>c.tool).join(', '):'no tool used')+(r.sources.length?' · sources: '+r.sources.map(s=>s.source).join(', '):'')+(r.note?' · '+r.note:''))}catch(e){ty.remove();add('bot','Error: '+e.message)}};
   $('#ask').onclick=send;$('#q').onkeydown=e=>{if(e.key==='Enter')send()};$$('.chip').forEach(c=>c.onclick=()=>{$('#q').value=c.textContent;send()});
-  add('bot','Ask me about incidents, tracked objects, zones, or operating procedures.');
+  add('bot','Ask me about incidents, tracked objects, zones, or operating procedures. You can write in English, Hindi or Hinglish.');
+  const pill=$('#aieng');   // keep a reference: the user may leave this tab before the request returns
+  api('/system/ai').then(a=>{pill.innerHTML=a.llm.configured?`<span class="dot" style="background:var(--low)"></span>Groq LLM + rules fallback`:`<span class="dot"></span>Rules engine (set GROQ_API_KEY for AI)`}).catch(()=>{pill.textContent='engine: n/a'});
 },
 async reports(){
   const rs=await api('/reports');
@@ -369,17 +382,23 @@ async admin(){
 const drawerOpen=on=>{$('#drawer').classList.toggle('on',on);$('#scrim').classList.toggle('on',on)};
 $('#scrim').onclick=()=>{drawerOpen(false);closeZone()};document.addEventListener('keydown',e=>{if(e.key==='Escape'){drawerOpen(false);closeZone()}});
 window.openIncident=async id=>{
-  const i=await api('/incidents/'+id);let img='';if(i.has_frame){try{img=`<img class="evimg" src="${await blobUrl(`/incidents/${id}/frame`)}" alt="evidence frame">`}catch(e){}}
+  $('#idet').innerHTML='<div class="empty">Loading incident…</div>';drawerOpen(true);   // open at once; never show the previous incident
+  let i;try{i=await api('/incidents/'+id)}catch(e){$('#idet').innerHTML=`<div class="err" style="padding:20px">${esc(e.message)}</div>`;return}
+  let img='';if(i.has_frame){try{img=`<img class="evimg" src="${await blobUrl(`/incidents/${id}/frame`)}" alt="evidence frame">`}catch(e){}}
   $('#idet').innerHTML=`<div class="ch">${sevBadge(i.severity)} <b style="font-size:16px;text-transform:none;letter-spacing:0;color:var(--tx)">${esc(i.code)}</b><span class="sp"></span><button class="iconbtn" id="dclose" title="Close">${ic('x')}</button></div>
    <div style="display:flex;gap:18px;align-items:center;margin:6px 0 4px">${gauge(i.risk_score,i.severity)}<div><div style="font-size:18px;font-weight:800">${esc(i.object_class)} #${i.track_id}</div><div class="mut">${esc(i.primary_type)} · ${mmss(i.start_t)} → ${mmss(i.end_t)}</div><div class="mut mono" style="font-size:12px">${i.lat.toFixed(5)}, ${i.lon.toFixed(5)}</div><div class="st ${esc(i.status)}" style="margin-top:6px">${esc(i.status)}${i.requires_review?' · human review required':''}</div></div></div>
    ${img}<div class="ch" style="margin-top:10px">Why this score — Reasons</div><div>${i.reasons.map(r=>`<span class="chip tag">${esc(r)}</span>`).join('')}</div>
    <div class="ch" style="margin-top:12px">Evidence timeline</div><div class="tl">${i.evidence.map(e=>`<div>${esc(e)}</div>`).join('')||'<div class="mut">–</div>'}</div>
    <div class="ch" style="margin-top:6px">AI recommendation</div><div><b>${esc(i.recommendation)}</b></div><div class="mut" style="font-size:12px;margin:4px 0">actions: ${i.actions.map(esc).join(', ')} · <b>no autonomous physical action</b></div>
    ${i.vlm?`<div class="ch" style="margin-top:10px">Vision-language analysis</div><div>${esc(i.vlm.summary)}</div><div class="mut" style="font-size:12px">${esc(i.vlm.provider)}:${esc(i.vlm.model)} · concern ${esc(i.vlm.concern_level)}</div>`:''}
+   ${can('admin','operator','analyst')?`<div class="ch" style="margin-top:12px">${ic('chat')} Ask AI</div><div style="display:flex;gap:8px"><select id="xlang" style="width:auto"><option>English</option><option>Hinglish</option><option>Hindi</option></select><button class="btn live sm" id="xai">Explain this incident</button></div><div id="xout" style="margin-top:8px"></div>`:''}
    <div class="ch" style="margin-top:12px">Decisions</div><div>${i.reviews.map(r=>`<div class="fi sys"><div class="m"><b>${esc(r.operator)}</b>: ${esc(r.decision)} — ${esc(r.comment)}</div><div class="t">${esc(r.timestamp.slice(11,19))}</div></div>`).join('')||'<div class="mut">No decisions yet</div>'}</div>
    <div class="mut mono" style="font-size:11px;margin-top:10px">${esc(JSON.stringify(i.model_versions))}</div>
    ${can('admin','operator')?`<label>Operator comment</label><textarea id="rc" rows="2" placeholder="Required when dismissing"></textarea><p style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ok" data-d="confirmed">${ic('check')} Approve</button><button class="btn bad" data-d="dismissed">${ic('x')} Dismiss</button><button class="btn sec" data-d="investigating">Investigate</button></p><div id="rmsg"></div>`:''}`;
   drawerOpen(true);$('#dclose').onclick=()=>drawerOpen(false);
+  if($('#xai'))$('#xai').onclick=async()=>{const b=$('#xai'),out=$('#xout');b.disabled=true;out.className='mut';out.textContent='Thinking…';
+    try{const r=await api('/assistant/query',{method:'POST',json:{question:`Explain incident ${i.code} for a non-technical manager. Reply in ${$('#xlang').value}.`}});out.className='';
+      out.innerHTML=`<div>${esc(r.answer)}</div><div class="mut" style="font-size:12px;margin-top:6px">${r.engine==='llm'?'AI · '+esc(r.model):'rules engine'}${r.note?' · '+esc(r.note):''}</div>`}catch(e){out.innerHTML=`<span class="err">${esc(e.message)}</span>`}b.disabled=false};
   $$('[data-d]').forEach(b=>b.onclick=async()=>{try{await api(`/incidents/${id}/review`,{method:'POST',json:{decision:b.dataset.d,comment:$('#rc').value}});toast(`Incident ${i.code}: ${b.dataset.d}`,'#3ddc97');
     if(S.reloadInc&&$('#ilist'))await S.reloadInc();badgeCounts();await openIncident(id)}catch(e){$('#rmsg').innerHTML=`<span class="err">${esc(e.message)}</span>`}})};
 
@@ -449,6 +468,7 @@ function onLive(m){
 }
 function poll(){clearInterval(S.timer);S.timer=setInterval(async()=>{if(S.tab!=='missions'){clearInterval(S.timer);return}
   const m=await api('/missions/'+S.mission);if(!m.videos.some(v=>v.status==='processing')){clearInterval(S.timer)}if(!busy())renderMission(m)},1500)}
+fetch('/api/v1/system/health').then(r=>r.json()).then(h=>{if(h.demo_mode&&h.demo){$('#demobox').classList.remove('hide');$('#demo').onclick=()=>{$('#u').value=h.demo.username;$('#p').value=h.demo.password;$('#go').click()}}}).catch(()=>{});
 if(S.token&&S.user)start();
 </script>
 </body>

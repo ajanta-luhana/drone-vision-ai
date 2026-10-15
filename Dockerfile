@@ -5,7 +5,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Optional: real-footage YOLO detector.  docker compose build --build-arg INSTALL_YOLO=1
-# (adds ~1.5 GB; weights are downloaded once at build time so the container works offline)
 ARG INSTALL_YOLO=0
 RUN if [ "$INSTALL_YOLO" = "1" ]; then \
       pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
@@ -17,6 +16,13 @@ RUN if [ "$INSTALL_YOLO" = "1" ]; then \
 
 COPY . .
 RUN python scripts/make_demo_video.py
+
+# Bake a pre-processed sample mission into the image so free/ephemeral hosts (which reset their disk on every
+# restart) always start with data. Users are NOT baked: they are created at startup from SEED_PASSWORD.
+ARG BAKE_DEMO=1
+RUN if [ "$BAKE_DEMO" = "1" ]; then cd /app/backend && python -m app.services.demo; fi
+
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD python -c "import urllib.request as u;u.urlopen('http://127.0.0.1:8000/api/v1/system/health',timeout=4)"
-CMD ["uvicorn", "app.main:app", "--app-dir", "backend", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s CMD python -c "import os,urllib.request as u;u.urlopen('http://127.0.0.1:%s/api/v1/system/health'%os.environ.get('PORT','8000'),timeout=4)"
+# Cloud hosts (Render, Railway, Koyeb, ...) inject $PORT; locally it stays 8000.
+CMD ["sh", "-c", "uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port ${PORT:-8000}"]

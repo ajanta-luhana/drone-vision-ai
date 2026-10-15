@@ -1,0 +1,27 @@
+# Render Blueprint: free web service built from the Dockerfile.  https://render.com  ->  New  ->  Blueprint
+services:
+  - type: web
+    name: drone-vision-ai
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/v1/system/health
+    autoDeploy: true
+    envVars:
+      - key: DEMO_MODE                  # sample data + a read-only "demo" login on the sign-in page
+        value: "1"
+      - key: SEED_PASSWORD              # password of admin/operator/analyst/viewer - Render generates it; read it in the dashboard
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GROQ_API_KEY               # paste your free key from console.groq.com in the Render dashboard
+        sync: false
+      - key: PUBLIC_URL                 # set to your https://<name>.onrender.com URL (used in alerts)
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: LLM_USER_PER_HOUR          # protect the free Groq quota on a public demo
+        value: "20"
+      - key: LLM_DAILY_CAP
+        value: "300"

@@ -17,8 +17,19 @@ services:
       PROCESS_FPS: "${PROCESS_FPS:-5}"
       MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-200}"
       BLUR_PERSONS: "${BLUR_PERSONS:-0}"         # 1 = blur people in stored video/frames
-      VLM_PROVIDER: "${VLM_PROVIDER:-stub}"
+      VLM_PROVIDER: "${VLM_PROVIDER:-auto}"            # auto = Groq vision when GROQ_API_KEY is set, else offline stub
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      GROQ_API_KEY: "${GROQ_API_KEY:-}"
+      GROQ_MODELS: "${GROQ_MODELS:-openai/gpt-oss-120b,openai/gpt-oss-20b}"
+      GROQ_VISION_MODELS: "${GROQ_VISION_MODELS:-qwen/qwen3.8-27b}"
+      LLM_USER_PER_HOUR: "${LLM_USER_PER_HOUR:-30}"
+      LLM_DAILY_CAP: "${LLM_DAILY_CAP:-400}"
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
+      TELEGRAM_CHAT_ID: "${TELEGRAM_CHAT_ID:-}"
+      ALERT_WEBHOOK_URL: "${ALERT_WEBHOOK_URL:-}"
+      ALERT_MIN_SEVERITY: "${ALERT_MIN_SEVERITY:-HIGH}"
+      PUBLIC_URL: "${PUBLIC_URL:-}"
+      DEMO_MODE: "${DEMO_MODE:-0}"
     volumes:
       - ./storage:/app/storage
     mem_limit: 2g
